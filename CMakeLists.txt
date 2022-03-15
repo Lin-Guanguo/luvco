@@ -1,0 +1,38 @@
+cmake_minimum_required(VERSION 3.16)
+project("luvco")
+
+find_package(libuv)
+
+# luvco library
+add_library(luvco
+    STATIC
+    ./src/luvco.c
+)
+target_include_directories(luvco
+    PUBLIC
+    ./include
+)
+target_link_libraries(luvco
+    PUBLIC
+    uv
+    m
+    lua
+)
+
+# test executable
+add_executable(main-test
+    test/main-test.c
+)
+target_link_libraries(main-test
+    PUBLIC
+    luvco
+)
+
+# test libuv
+add_executable(libuv-echo
+    test/libuv-echo.c
+)
+target_link_libraries(libuv-echo
+    PUBLIC
+    luvco
+)

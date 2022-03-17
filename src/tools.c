@@ -20,8 +20,14 @@ void luvco_dump_lua_stack (lua_State* L) {
       case LUA_TNIL:
         printf("\t%s\n", "nil");
         break;
+      case LUA_TUSERDATA:
+        luaL_getmetafield(L, i, "__name");
+        const char* name = lua_tostring(L, -1);
+        printf("\t%s\n", name);
+        lua_pop(L, 1);
+        break;
       default:
-        printf("\t%p\n",lua_topointer(L,i));
+        printf("\t%p\n", lua_topointer(L,i));
         break;
     }
   }

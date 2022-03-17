@@ -17,7 +17,6 @@
     lua_pushlightuserdata(L, (void*)(call_back)); \
     lua_pushlightuserdata(L, (void*)&luvco_yield)
 
-
 #define luvco_resume(L, narg, nres) \
     lua_resume((L), NULL, (narg), (nres));  \
     luvco_yield((L))

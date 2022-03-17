@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 
 #include <lua/lauxlib.h>
 #include <lua/lua.h>
@@ -32,7 +33,10 @@ int main() {
 
     luaL_openlibs(L);
     luaL_requiref(L, "luvco", luvco_open_base, 1);
+    luaL_requiref(L, "net", luvco_open_net, 1);
+
     lua_pop(L, 1);
     luaL_dofile(L, "../lua/test.lua");
+
     luvco_run(L);
 }

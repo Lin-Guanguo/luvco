@@ -29,21 +29,21 @@ lua_State* luvco_new_co(lua_State* L) {
     return NL;
 }
 
-typedef struct luvco_state {
-    uv_loop_t loop;
-} luvco_state;
-
 // lua_state has only one shared luvco_state
-static luvco_state* init_luvco_state (lua_State* L) {
+static luvco_state* luvco_init_state (lua_State* L) {
     luvco_state* state = luvco_pushudata_with_meta(L, luvco_state);
+
+    printf("luvco_init_state %p\n", state);
     uv_loop_init(&state->loop);
     lua_setfield(L, LUA_REGISTRYINDEX, "luvco.global_state");
     return state;
 }
 
-static luvco_state* get_luvco_state (lua_State* L) {
+luvco_state* luvco_get_state (lua_State* L) {
     lua_getfield(L, LUA_REGISTRYINDEX, "luvco.global_state");
     luvco_state* state = (luvco_state*)lua_touserdata(L, -1);
+    printf("get_luvco_state %p\n", state);
+
     lua_pop(L, 1);
     return state;
 }
@@ -64,7 +64,9 @@ void luvco_yield (lua_State* L) {
     luvco_dump_lua_stack(L);
     lua_pop(L, 2);
 
-    cb(L);
+    if (cb != NULL) {
+        cb(L); // else cb is register by yield fun
+    }
 }
 
 int luvco_run (lua_State* L) {
@@ -73,7 +75,7 @@ int luvco_run (lua_State* L) {
     luvco_new_meta(L, luvco_state);
     lua_pop(L, 1);
 
-    luvco_state* state = init_luvco_state(L);
+    luvco_state* state = luvco_init_state(L);
 
     int res;
     luvco_resume(L, 0, &res);

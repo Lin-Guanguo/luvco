@@ -1,3 +1,5 @@
+#include <assert.h>
+#include <stdbool.h>
 
 #define luvco_new_meta(L, type)          \
     luaL_newmetatable((L), "luvco."#type);    \
@@ -15,9 +17,12 @@
     lua_pushlightuserdata(L, (void*)(call_back)); \
     lua_pushlightuserdata(L, (void*)&luvco_yield)
 
+
 #define luvco_resume(L, narg, nres) \
     lua_resume((L), NULL, (narg), (nres));  \
     luvco_yield((L))
+
+#define ASSERT_NOT_NULL(p) assert((p) != NULL)
 
 typedef void (*luvco_yield_cb ) (lua_State *L);
 

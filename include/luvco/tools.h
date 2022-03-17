@@ -11,7 +11,7 @@
 #define luvco_check_udata(L, n, type) \
     (type*)luaL_checkudata((L), (n), "luvco."#type)
 
-#define push_async_yield_tag(L, call_back) \
+#define luvco_push_yield_tag(L, call_back) \
     lua_pushlightuserdata(L, (void*)(call_back)); \
     lua_pushlightuserdata(L, (void*)&luvco_yield)
 

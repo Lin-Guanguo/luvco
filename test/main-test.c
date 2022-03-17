@@ -11,8 +11,24 @@ static int test_lua_c_fn (lua_State *L) {
     return 0;
 }
 
+size_t total_alloc = 0;
+
+void* my_alloc (void *ud, void *ptr, size_t osize, size_t nsize) {
+    (void)ud; (void)osize;  /* not used */
+    if (nsize == 0) {
+        total_alloc -= osize;
+        // printf("== free  %ld\n", osize);
+        free(ptr);
+        return NULL;
+    } else {
+        total_alloc += nsize - osize;
+        // printf("== alloc %ld\t total = %ld\n", nsize - osize, total_alloc);
+        return realloc(ptr, nsize);
+    }
+}
+
 int main() {
-    lua_State *L = luaL_newstate();
+    lua_State *L = lua_newstate(my_alloc, NULL);
 
     luaL_openlibs(L);
     luaL_requiref(L, "luvco", luvco_open_base, 1);

@@ -6,21 +6,32 @@
 #include <luvco.h>
 #include <luvco/tools.h>
 
-static const int THIS_LIB_ASYNC_YIELD_ID = 0;
+static void yield_spawn_local (lua_State* L) {
+    luaL_checktype(L, 1, LUA_TFUNCTION);
+    lua_State* NL = luvco_new_co(L);
 
-static int luvco_spawn_local_k (lua_State* L, int status, lua_KContext ctx) {
+    lua_pushvalue(L, 1); // copy function to top
+    lua_xmove(L, NL, 1);  // pop function from L to NL
+
+    printf("spawn local: %p\n", NL);
+
+    int res;
+    luvco_resume(L, 0, &res);
+    luvco_resume(NL, 0, &res);
+}
+
+static int spawn_local_k (lua_State* L, int status, lua_KContext ctx) {
     return 0;
 }
 
-static int luvco_spawn_local (lua_State* L) {
+static int spawn_local (lua_State* L) {
     luaL_checktype(L, 1, LUA_TFUNCTION);
-    push_async_yield_tag(L, 0);
-    lua_yieldk(L, 0, (lua_KContext)NULL, luvco_spawn_local_k);
-    // yield, let luvco context to luvco_spawn_local_c
+    push_async_yield_tag(L, &yield_spawn_local);
+    lua_yieldk(L, 0, (lua_KContext)NULL, spawn_local_k);
 }
 
 static const luaL_Reg base_lib [] = {
-    { "spawn_local", luvco_spawn_local },
+    { "spawn_local", spawn_local },
     { NULL, NULL }
 };
 

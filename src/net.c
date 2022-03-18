@@ -143,6 +143,14 @@ static void connection_read_cb (uv_stream_t* stream, ssize_t nread, const uv_buf
         int res;
         luvco_resume(L, 1, &res);
     }
+    // TODO
+}
+
+static int connection_gc (lua_State *L) {
+    tcp_connection* con = luvco_check_udata(L, 1, tcp_connection);
+    free(con->read_buf);
+    printf("===connection gc\n");
+    return 0;
 }
 
 static const luaL_Reg net_lib [] = {
@@ -159,6 +167,7 @@ static const luaL_Reg server_m [] = {
 
 static const luaL_Reg con_m [] = {
     { "read", connection_read },
+    { "__gc", connection_gc },
     { NULL, NULL}
 };
 

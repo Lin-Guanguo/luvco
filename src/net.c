@@ -59,6 +59,8 @@ static int new_server (lua_State* L) {
 }
 
 static int server_accept_k (lua_State *L, int status, lua_KContext ctx) {
+    printf("server_accept_k ");
+    luvco_dump_lua_stack(L);
     return 1;
 }
 
@@ -73,7 +75,6 @@ static int server_accept (lua_State* L) {
     ret = uv_accept((uv_stream_t*)server, (uv_stream_t*)client);
     if (ret < 0) {
         server->waiting_accept = L;
-        luvco_push_yield_tag(L, NULL);
         lua_yieldk(L, 0, (lua_KContext)NULL, server_accept_k);
     }
     return 1;
@@ -89,7 +90,7 @@ void server_accept_cb (uv_stream_t* tcp, int status) {
         int ret = uv_accept((uv_stream_t*)server, (uv_stream_t*)connection);
         assert(ret == 0);
 
-        printf("================Accept");
+        printf("================Accept\n");
         luvco_resume(L, 1, &ret);
     }
 }

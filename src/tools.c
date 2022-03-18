@@ -32,5 +32,3 @@ void luvco_dump_lua_stack (lua_State* L) {
     }
   }
 }
-
-void luvco_yield_tag() {}

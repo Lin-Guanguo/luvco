@@ -16,17 +16,18 @@ static void register_coro (lua_State* L) {
     lua_settable(L, LUA_REGISTRYINDEX);
 }
 
-static void unregister_coro (lua_State* L) {
+static int unregister_coro_k (lua_State *L, int status, lua_KContext ctx) {
+    assert(false && "should not resume");
+    return 0;
+}
+
+static int unregister_coro (lua_State* L) {
     printf ("unregister_coro %p\n", L);
     lua_pushlightuserdata(L, (void*)L);
     lua_pushnil(L);
     lua_settable(L, LUA_REGISTRYINDEX);
-}
-
-lua_State* luvco_new_co(lua_State* L) {
-    lua_State* NL = lua_newthread(L);
-    register_coro(L);
-    return NL;
+    lua_yieldk(L, 0, (lua_KContext)NULL, unregister_coro_k);
+    return 0;
 }
 
 // lua_state has only one shared luvco_state
@@ -48,25 +49,36 @@ luvco_state* luvco_get_state (lua_State* L) {
     return state;
 }
 
-void luvco_yield (lua_State* L) {
-    void* yield_tag = lua_touserdata(L, -1);
-    if (yield_tag != (void*)&luvco_yield) {
-        printf("State:%p return\n", L);
-        if (lua_gettop(L) != 0) {
-            printf("    stack no empty ");
-            luvco_dump_lua_stack(L);
-        }
-        unregister_coro(L);
-        return;
-    }
+static int spawn_local_k (lua_State* L, int status, lua_KContext ctx) {
+    return 0;
+}
 
-    luvco_yield_cb cb = (luvco_yield_cb)lua_touserdata(L, -2);
-    luvco_dump_lua_stack(L);
-    lua_pop(L, 2);
+static int spawn_local (lua_State* L) {
+    luaL_checktype(L, 1, LUA_TFUNCTION);
+    lua_State* NL = lua_newthread(L);
+    register_coro(L);
 
-    if (cb != NULL) {
-        cb(L); // else cb is register by yield fun
-    }
+    lua_pushvalue(L, 1); // copy function to top
+    lua_xmove(L, NL, 1);  // pop function from L to NL
+
+    printf("spawn local: %p\n", NL);
+
+    int res;
+    luvco_resume(NL, 0, &res);
+
+    return 0;
+}
+
+// TODO: auto call free_co
+static const luaL_Reg base_lib [] = {
+    { "spawn_local", spawn_local },
+    { "_free_co", unregister_coro },
+    { NULL, NULL }
+};
+
+int luvco_open_base (lua_State* L) {
+    luaL_newlib(L, base_lib);
+    return 1;
 }
 
 int luvco_run (lua_State* L) {

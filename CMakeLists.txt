@@ -8,7 +8,6 @@ add_library(luvco
     STATIC
     ./src/tools.c
     ./src/luvco.c
-    ./src/base.c
     ./src/net.c
 )
 target_include_directories(luvco

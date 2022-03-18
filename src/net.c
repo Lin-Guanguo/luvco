@@ -1,3 +1,5 @@
+#include <stdlib.h>
+
 #include <lua/lauxlib.h>
 #include <lua/lua.h>
 #include <lua/lualib.h>
@@ -39,9 +41,11 @@ typedef struct tcp_server {
 
 typedef struct tcp_connection {
     uv_tcp_t tcp;
+    lua_State* L;
+    char* read_buf;
 } tcp_connection;
 
-void server_accept_cb (uv_stream_t* tcp, int status);
+static void server_accept_cb (uv_stream_t* tcp, int status);
 
 static int new_server (lua_State* L) {
     ip_addr* addr = luvco_check_udata(L, 1, ip_addr);
@@ -58,29 +62,7 @@ static int new_server (lua_State* L) {
     return 1;
 }
 
-static int server_accept_k (lua_State *L, int status, lua_KContext ctx) {
-    printf("server_accept_k ");
-    luvco_dump_lua_stack(L);
-    return 1;
-}
-
-static int server_accept (lua_State* L) {
-    tcp_server* server = luvco_check_udata(L, 1, tcp_server);
-    luvco_state* state = luvco_get_state(L);
-
-    tcp_connection* client = luvco_pushudata_with_meta(L, tcp_connection);
-    int ret = uv_tcp_init(&state->loop, (uv_tcp_t *)client);
-    assert(ret == 0);
-
-    ret = uv_accept((uv_stream_t*)server, (uv_stream_t*)client);
-    if (ret < 0) {
-        server->waiting_accept = L;
-        lua_yieldk(L, 0, (lua_KContext)NULL, server_accept_k);
-    }
-    return 1;
-}
-
-void server_accept_cb (uv_stream_t* tcp, int status) {
+static void server_accept_cb (uv_stream_t* tcp, int status) {
     tcp_server* server = (tcp_server*)tcp;
     if (server->waiting_accept != NULL) {
         lua_State* L = server->waiting_accept;
@@ -92,6 +74,74 @@ void server_accept_cb (uv_stream_t* tcp, int status) {
 
         printf("================Accept\n");
         luvco_resume(L, 1, &ret);
+    }
+}
+
+static int server_accept_k (lua_State *L, int status, lua_KContext ctx);
+
+static int server_accept (lua_State* L) {
+    tcp_server* server = luvco_check_udata(L, 1, tcp_server);
+    luvco_state* state = luvco_get_state(L);
+
+    tcp_connection* client = luvco_pushudata_with_meta(L, tcp_connection);
+    client->read_buf = NULL;
+    client->L = L;
+    int ret = uv_tcp_init(&state->loop, (uv_tcp_t *)client);
+    assert(ret == 0);
+
+    ret = uv_accept((uv_stream_t*)server, (uv_stream_t*)client);
+    if (ret < 0) {
+        server->waiting_accept = L;
+        lua_yieldk(L, 0, (lua_KContext)NULL, server_accept_k);
+    }
+    return 1;
+}
+
+static int server_accept_k (lua_State *L, int status, lua_KContext ctx) {
+    printf("server_accept_k ");
+    luvco_dump_lua_stack(L);
+    return 1;
+}
+
+static void connection_alloc_cb (uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
+static void connection_read_cb (uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf);
+static int connection_read_k (lua_State *L, int status, lua_KContext ctx);
+
+static int connection_read (lua_State* L) {
+    tcp_connection* con = luvco_check_udata(L, 1, tcp_connection);
+    luvco_state* state = luvco_get_state(L);
+
+    printf("==%p\n", con);
+    int ret = uv_read_start((uv_stream_t*)con, connection_alloc_cb, connection_read_cb);
+    assert(ret == 0);
+    lua_yieldk(L, 0, (lua_KContext)NULL, connection_read_k);
+}
+
+static int connection_read_k (lua_State *L, int status, lua_KContext ctx) {
+    printf("connection_read_k");
+    luvco_dump_lua_stack(L);
+    return 1;
+}
+
+static void connection_alloc_cb (uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
+    tcp_connection* con = (tcp_connection*)handle;
+    if (con->read_buf == NULL) {
+        con->read_buf = (char*)malloc(suggested_size);
+        // TODO: buf garbage collection
+    }
+    buf->base = con->read_buf;
+    buf->len = suggested_size;
+}
+
+static void connection_read_cb (uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
+    uv_read_stop(stream); // one shot read
+
+    tcp_connection* con = (tcp_connection*)stream;
+    lua_State* L = con->L;
+    if (nread > 0) {
+        lua_pushlstring(L, buf->base, nread);
+        int res;
+        luvco_resume(L, 1, &res);
     }
 }
 
@@ -107,11 +157,17 @@ static const luaL_Reg server_m [] = {
     { NULL, NULL}
 };
 
+static const luaL_Reg con_m [] = {
+    { "read", connection_read },
+    { NULL, NULL}
+};
+
 int luvco_open_net (lua_State* L) {
     luvco_new_meta(L, ip_addr);
     luvco_new_meta(L, tcp_server);
     luaL_setfuncs(L, server_m, 0);
     luvco_new_meta(L, tcp_connection);
+    luaL_setfuncs(L, con_m, 0);
 
     int ty = lua_getglobal(L, "luvco");
     luaL_newlib(L, net_lib);

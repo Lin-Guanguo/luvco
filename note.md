@@ -6,3 +6,5 @@
     多少返回值，这里由前向后截取，优先截取原先栈底方向的。
 
 * lua_yieldk 会保留栈，resume后能继续使用;
+
+* uv_read_start() 的 alloc_cb 接收到的 handle_t 就是 uv_read_start 的第一个参数

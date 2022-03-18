@@ -113,6 +113,11 @@ int luvco_open_net (lua_State* L) {
     luaL_setfuncs(L, server_m, 0);
     luvco_new_meta(L, tcp_connection);
 
+    int ty = lua_getglobal(L, "luvco");
     luaL_newlib(L, net_lib);
+    if (ty == LUA_TTABLE) {
+        lua_pushvalue(L, -1);
+        lua_setfield(L, -3, "net");
+    }
     return 1;
 }

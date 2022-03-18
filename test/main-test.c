@@ -33,7 +33,7 @@ int main() {
 
     luaL_openlibs(L);
     luaL_requiref(L, "luvco", luvco_open_base, 1);
-    luaL_requiref(L, "net", luvco_open_net, 1);
+    luaL_requiref(L, "luvco_net", luvco_open_net, 1);
 
     lua_pop(L, 1);
     luaL_dofile(L, "../lua/test.lua");

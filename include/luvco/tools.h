@@ -18,7 +18,11 @@
 
 #define ASSERT_NOT_NULL(p) assert((p) != NULL)
 
-typedef void (*luvco_yield_cb ) (lua_State *L);
+typedef struct luvco_state {
+    uv_loop_t loop;
+} luvco_state;
+
+luvco_state* luvco_get_state (lua_State* L);
 
 void luvco_yield (lua_State *L, lua_KContext k_ctx, lua_KFunction k);
 

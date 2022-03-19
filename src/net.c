@@ -5,8 +5,8 @@
 #include <lua/lualib.h>
 
 #include <uv.h>
-#include <luvco/tools.h>
 #include <luvco.h>
+#include <luvco/tools.h>
 
 typedef struct ip_addr {
     struct sockaddr_storage addr;

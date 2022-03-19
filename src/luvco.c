@@ -9,7 +9,6 @@
 // top of stack is coroutine thread.
 // prevent gc collect coroutine
 static void register_coro (lua_State* L) {
-    log_trace("register coro %p", L);
     luaL_checktype(L, -1, LUA_TTHREAD);
     lua_pushlightuserdata(L, (void*)L);
     lua_pushvalue(L, -2);

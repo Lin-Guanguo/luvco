@@ -20,13 +20,11 @@ static int unregister_coro_k (lua_State *L, int status, lua_KContext ctx) {
     return 0;
 }
 
-static int unregister_coro (lua_State* L) {
+static void unregister_coro (lua_State* L) {
     log_trace("unregister coro %p", L);
     lua_pushlightuserdata(L, (void*)L);
     lua_pushnil(L);
     lua_settable(L, LUA_REGISTRYINDEX);
-    lua_yieldk(L, 0, (lua_KContext)NULL, unregister_coro_k);
-    return 0;
 }
 
 // lua_state has only one shared luvco_state
@@ -45,6 +43,18 @@ luvco_state* luvco_get_state (lua_State* L) {
     return state;
 }
 
+void luvco_resume(lua_State *L, int nargs) {
+    int res;
+    int ret = lua_resume(L, NULL, nargs, &res);
+    switch (ret) {
+        case LUA_YIELD: break;
+        case LUA_OK: unregister_coro(L); break;
+        default:
+            log_error("luvco resume error");
+            luvco_dump_lua_stack(L);
+    }
+}
+
 static int spawn_local_k (lua_State* L, int status, lua_KContext ctx) {
     return 0;
 }
@@ -59,15 +69,13 @@ static int spawn_local (lua_State* L) {
 
     log_trace("spawn local from L:%p, NL:%p", L, NL);
 
-    int res;
-    luvco_resume(NL, 0, &res);
+    luvco_resume(NL, 0);
     return 0;
 }
 
 // TODO: auto call free_co
 static const luaL_Reg base_lib [] = {
     { "spawn_local", spawn_local },
-    { "_free_co", unregister_coro },
     { NULL, NULL }
 };
 
@@ -84,8 +92,7 @@ int luvco_run (lua_State* L) {
 
     luvco_state* state = luvco_init_state(L);
 
-    int res;
-    luvco_resume(L, 0, &res);
+    luvco_resume(L, 0);
 
     uv_run(&state->loop, UV_RUN_DEFAULT);
     return 0;

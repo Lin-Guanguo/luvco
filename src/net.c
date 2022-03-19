@@ -42,7 +42,7 @@ typedef struct tcp_server {
 
 typedef struct tcp_connection {
     uv_tcp_t tcp;
-    lua_State* L;
+    lua_State* L; // for resume, thus before call yield, update this to current coroutine
     bool closed;
 
     char* read_buf; // read buf, alloc in first read, free in gc
@@ -94,7 +94,6 @@ static int server_accept (lua_State* L) {
     luvco_state* state = luvco_get_state(L);
 
     tcp_connection* client = luvco_pushudata_with_meta(L, tcp_connection);
-    client->L = L;
     client->closed = false;
     client->read_buf = NULL;
     client->write_req = NULL;
@@ -146,6 +145,7 @@ static int connection_read_k (lua_State *L, int status, lua_KContext ctx);
 
 static int connection_read (lua_State* L) {
     tcp_connection* con = luvco_check_udata(L, 1, tcp_connection);
+    con->L = L;
     log_trace("connection %p read", con);
 
     int ret = uv_read_start((uv_stream_t*)con, connection_alloc_cb, connection_read_cb);
@@ -183,6 +183,7 @@ static int connection_write_k (lua_State *L, int status, lua_KContext ctx);
 
 static int connection_write (lua_State* L) {
     tcp_connection* con = luvco_check_udata(L, 1, tcp_connection);
+    con->L = L;
     luvco_state* state = luvco_get_state(L);
     log_trace("connection %p write", con);
 

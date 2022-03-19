@@ -39,3 +39,12 @@ target_link_libraries(libuv-echo
     PUBLIC
     luvco
 )
+
+# driver
+add_executable(driver
+    test/driver.c
+)
+target_link_libraries(driver
+    PUBLIC
+    luvco
+)

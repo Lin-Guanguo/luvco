@@ -8,6 +8,7 @@ return function()
             local connection = server:accept()
             local reads = connection:read()
             connection:close()
+            server:close()
             print( reads )
         end
         collectgarbage("collect");

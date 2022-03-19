@@ -37,6 +37,7 @@ static int new_ip6_addr (lua_State* L) {
 typedef struct tcp_server {
     uv_tcp_t tcp;
     lua_State* waiting_accept; // lua_State which waiting for new connection, react in server_accpet_cb
+    bool closed;
 } tcp_server;
 
 typedef struct tcp_connection {
@@ -53,10 +54,12 @@ static int new_server (lua_State* L) {
     luvco_state* state = luvco_get_state(L);
 
     tcp_server* server = luvco_pushudata_with_meta(L, tcp_server);
+    server->waiting_accept = NULL;
+    server->closed = false;
+
     int ret = uv_tcp_init(&state->loop, (uv_tcp_t *)server);
     assert(ret == 0);
     uv_tcp_bind(&server->tcp, (const struct sockaddr*)&addr->addr, 0);
-    server->waiting_accept = NULL;
 
     log_trace("server %p start listen", server);
     uv_listen((uv_stream_t*)server, SOMAXCONN, &server_accept_cb);
@@ -101,6 +104,29 @@ static int server_accept (lua_State* L) {
 
 static int server_accept_k (lua_State *L, int status, lua_KContext ctx) {
     return 1;
+}
+
+static void server_close_cb (uv_handle_t* handle);
+
+static int server_close (lua_State* L) {
+    tcp_server* server = luvco_check_udata(L, 1, tcp_server);
+    if (!server->closed) {
+        log_trace("server %p closed", server);
+        uv_close((uv_handle_t*)server, server_close_cb);
+        server->closed = 1;
+    }
+    return 0;
+}
+
+static void server_close_cb (uv_handle_t* handle) {
+    /* do nothing, memory in handled by lua vm */
+}
+
+static int server_gc (lua_State* L) {
+    tcp_server* server = luvco_check_udata(L, 1, tcp_server);
+    log_trace("server %p gc", server);
+    server_close(L);
+    return 0;
 }
 
 static void connection_alloc_cb (uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf);
@@ -156,7 +182,7 @@ static int connection_close (lua_State *L) {
 }
 
 static void connection_close_cb (uv_handle_t* handle) {
-    /* do nothing, memory in handler by lua vm */
+    /* do nothing, memory in handled by lua vm */
 }
 
 static int connection_gc (lua_State *L) {
@@ -176,6 +202,8 @@ static const luaL_Reg net_lib [] = {
 
 static const luaL_Reg server_m [] = {
     { "accept", server_accept },
+    { "close", server_close },
+    { "__gc", server_gc },
     { NULL, NULL}
 };
 

@@ -43,6 +43,7 @@ typedef struct tcp_connection {
     uv_tcp_t tcp;
     lua_State* L;
     char* read_buf;
+    bool closed;
 } tcp_connection;
 
 static void server_accept_cb (uv_stream_t* tcp, int status);
@@ -84,8 +85,9 @@ static int server_accept (lua_State* L) {
     log_trace("server %p accept", server);
 
     tcp_connection* client = luvco_pushudata_with_meta(L, tcp_connection);
-    client->read_buf = NULL;
     client->L = L;
+    client->read_buf = NULL;
+    client->closed = false;
     int ret = uv_tcp_init(&state->loop, (uv_tcp_t *)client);
     assert(ret == 0);
 
@@ -141,9 +143,26 @@ static void connection_read_cb (uv_stream_t* stream, ssize_t nread, const uv_buf
     // TODO
 }
 
+static void connection_close_cb (uv_handle_t* handle);
+
+static int connection_close (lua_State *L) {
+    tcp_connection* con = luvco_check_udata(L, 1, tcp_connection);
+    if (!con->closed) {
+        log_trace("connection %p close", con);
+        uv_close((uv_handle_t *)con, connection_close_cb);
+        con->closed = true;
+    }
+    return 0;
+}
+
+static void connection_close_cb (uv_handle_t* handle) {
+    /* do nothing, memory in handler by lua vm */
+}
+
 static int connection_gc (lua_State *L) {
     tcp_connection* con = luvco_check_udata(L, 1, tcp_connection);
-    log_trace("connetion %p start gc", con);
+    log_trace("connection %p gc", con);
+    connection_close(L);
     free(con->read_buf);
     return 0;
 }
@@ -162,6 +181,7 @@ static const luaL_Reg server_m [] = {
 
 static const luaL_Reg con_m [] = {
     { "read", connection_read },
+    { "close", connection_close },
     { "__gc", connection_gc },
     { NULL, NULL}
 };

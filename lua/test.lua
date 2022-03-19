@@ -6,7 +6,8 @@ return function()
             local addr = luvco.net.new_ip4_addr("127.0.0.1", 8080)
             local server = luvco_net.new_server(addr)
             local connection = server:accept()
-            local reads = connection:read();
+            local reads = connection:read()
+            connection:close()
             print( reads )
         end
         collectgarbage("collect");

@@ -20,6 +20,8 @@
 
 typedef void (*luvco_yield_cb ) (lua_State *L);
 
-void luvco_resume(lua_State *L, int nargs);
+void luvco_yield (lua_State *L, lua_KContext k_ctx, lua_KFunction k);
+
+void luvco_resume (lua_State *L, int nargs);
 
 void luvco_dump_lua_stack (lua_State *L);

@@ -38,9 +38,15 @@ luvco_state* luvco_get_state (lua_State* L) {
     return state;
 }
 
+void luvco_yield (lua_State *L, lua_KContext k_ctx, lua_KFunction k) {
+    // no use the yield result
+    lua_yieldk(L, 0, k_ctx, k);
+}
+
 void luvco_resume(lua_State *L, int nargs) {
     int res;
     int ret = lua_resume(L, NULL, nargs, &res);
+    assert(res == 0);
     switch (ret) {
         case LUA_YIELD: break;
         case LUA_OK: unregister_coro(L); break;

@@ -106,7 +106,7 @@ static int server_accept (lua_State* L) {
     if (ret < 0) {
         server->waiting_accept = L;
         log_trace("server %p accpet no income, wait...", server);
-        lua_yieldk(L, 0, (lua_KContext)NULL, server_accept_k);
+        luvco_yield(L, (lua_KContext)NULL, server_accept_k);
     }
     log_trace("accept connection %p", client);
     return 1;
@@ -150,7 +150,7 @@ static int connection_read (lua_State* L) {
 
     int ret = uv_read_start((uv_stream_t*)con, connection_alloc_cb, connection_read_cb);
     assert(ret == 0);
-    lua_yieldk(L, 0, (lua_KContext)NULL, connection_read_k);
+    luvco_yield(L, (lua_KContext)NULL, connection_read_k);
 }
 
 static int connection_read_k (lua_State *L, int status, lua_KContext ctx) {
@@ -204,7 +204,7 @@ static int connection_write (lua_State* L) {
     }
     int ret = uv_write(con->write_req, (uv_stream_t*)con, con->write_bufs, write_n, connection_write_cb);
     assert(ret == 0);
-    lua_yieldk(L, 0, (lua_KContext)NULL, connection_write_k);
+    luvco_yield(L, (lua_KContext)NULL, connection_write_k);
 }
 
 static int connection_write_k (lua_State *L, int status, lua_KContext ctx) {

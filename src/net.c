@@ -57,7 +57,7 @@ static int new_server (lua_State* L) {
     uv_tcp_bind(&server->tcp, (const struct sockaddr*)&addr->addr, 0);
     server->waiting_accept = NULL;
 
-    printf("uv listen\n");
+    log_trace("server %p start listen", server);
     uv_listen((uv_stream_t*)server, SOMAXCONN, &server_accept_cb);
     return 1;
 }
@@ -72,7 +72,6 @@ static void server_accept_cb (uv_stream_t* tcp, int status) {
         int ret = uv_accept((uv_stream_t*)server, (uv_stream_t*)connection);
         assert(ret == 0);
 
-        printf("================Accept\n");
         luvco_resume(L, 1, &ret);
     }
 }
@@ -82,6 +81,7 @@ static int server_accept_k (lua_State *L, int status, lua_KContext ctx);
 static int server_accept (lua_State* L) {
     tcp_server* server = luvco_check_udata(L, 1, tcp_server);
     luvco_state* state = luvco_get_state(L);
+    log_trace("server %p accept", server);
 
     tcp_connection* client = luvco_pushudata_with_meta(L, tcp_connection);
     client->read_buf = NULL;
@@ -98,8 +98,6 @@ static int server_accept (lua_State* L) {
 }
 
 static int server_accept_k (lua_State *L, int status, lua_KContext ctx) {
-    printf("server_accept_k ");
-    luvco_dump_lua_stack(L);
     return 1;
 }
 
@@ -110,16 +108,14 @@ static int connection_read_k (lua_State *L, int status, lua_KContext ctx);
 static int connection_read (lua_State* L) {
     tcp_connection* con = luvco_check_udata(L, 1, tcp_connection);
     luvco_state* state = luvco_get_state(L);
+    log_trace("connection %p read", con);
 
-    printf("==%p\n", con);
     int ret = uv_read_start((uv_stream_t*)con, connection_alloc_cb, connection_read_cb);
     assert(ret == 0);
     lua_yieldk(L, 0, (lua_KContext)NULL, connection_read_k);
 }
 
 static int connection_read_k (lua_State *L, int status, lua_KContext ctx) {
-    printf("connection_read_k");
-    luvco_dump_lua_stack(L);
     return 1;
 }
 
@@ -127,7 +123,6 @@ static void connection_alloc_cb (uv_handle_t* handle, size_t suggested_size, uv_
     tcp_connection* con = (tcp_connection*)handle;
     if (con->read_buf == NULL) {
         con->read_buf = (char*)malloc(suggested_size);
-        // TODO: buf garbage collection
     }
     buf->base = con->read_buf;
     buf->len = suggested_size;
@@ -148,8 +143,8 @@ static void connection_read_cb (uv_stream_t* stream, ssize_t nread, const uv_buf
 
 static int connection_gc (lua_State *L) {
     tcp_connection* con = luvco_check_udata(L, 1, tcp_connection);
+    log_trace("connetion %p start gc", con);
     free(con->read_buf);
-    printf("===connection gc\n");
     return 0;
 }
 

@@ -9,20 +9,20 @@
 // top of stack is coroutine thread.
 // prevent gc collect coroutine
 static void register_coro (lua_State* L) {
+    log_trace("register coro %p", L);
     luaL_checktype(L, -1, LUA_TTHREAD);
-    printf ("register_coro   %p\n", lua_tothread(L, -1));
     lua_pushlightuserdata(L, (void*)L);
     lua_pushvalue(L, -2);
     lua_settable(L, LUA_REGISTRYINDEX);
 }
 
 static int unregister_coro_k (lua_State *L, int status, lua_KContext ctx) {
-    assert(false && "should not resume");
+    log_fatal("coro is unregistered, should not resume");
     return 0;
 }
 
 static int unregister_coro (lua_State* L) {
-    printf ("unregister_coro %p\n", L);
+    log_trace("unregister coro %p", L);
     lua_pushlightuserdata(L, (void*)L);
     lua_pushnil(L);
     lua_settable(L, LUA_REGISTRYINDEX);
@@ -32,9 +32,8 @@ static int unregister_coro (lua_State* L) {
 
 // lua_state has only one shared luvco_state
 static luvco_state* luvco_init_state (lua_State* L) {
+    log_trace("init luvco state for %p", L);
     luvco_state* state = luvco_pushudata_with_meta(L, luvco_state);
-
-    printf("luvco_init_state %p\n", state);
     uv_loop_init(&state->loop);
     lua_setfield(L, LUA_REGISTRYINDEX, "luvco.global_state");
     return state;
@@ -43,8 +42,6 @@ static luvco_state* luvco_init_state (lua_State* L) {
 luvco_state* luvco_get_state (lua_State* L) {
     lua_getfield(L, LUA_REGISTRYINDEX, "luvco.global_state");
     luvco_state* state = (luvco_state*)lua_touserdata(L, -1);
-    printf("get_luvco_state %p\n", state);
-
     lua_pop(L, 1);
     return state;
 }
@@ -61,11 +58,10 @@ static int spawn_local (lua_State* L) {
     lua_pushvalue(L, 1); // copy function to top
     lua_xmove(L, NL, 1);  // pop function from L to NL
 
-    printf("spawn local: %p\n", NL);
+    log_trace("spawn local from L:%p, NL:%p", L, NL);
 
     int res;
     luvco_resume(NL, 0, &res);
-
     return 0;
 }
 

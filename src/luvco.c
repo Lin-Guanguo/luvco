@@ -82,7 +82,7 @@ int luvco_open_base (lua_State* L) {
 }
 
 int luvco_run (lua_State* L) {
-    printf("luvco run start\n");
+    log_info("luvco run start\n");
 
     luvco_new_meta(L, luvco_state);
     lua_pop(L, 1);

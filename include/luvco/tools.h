@@ -2,6 +2,8 @@
 #include <assert.h>
 #include <stdbool.h>
 
+#include <luvco/log.h>
+
 #define luvco_new_meta(L, type)          \
     luaL_newmetatable((L), "luvco."#type);    \
     lua_pushvalue((L), -1);                   \

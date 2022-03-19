@@ -7,6 +7,7 @@ find_package(libuv)
 add_library(luvco
     STATIC
     ./src/tools.c
+    ./src/log.c
     ./src/luvco.c
     ./src/net.c
 )

@@ -49,7 +49,7 @@ typedef struct tcp_connection {
 
     uv_write_t* write_req;
     uv_buf_t* write_bufs; // array of buf, wait to write, alloc in write, free in gc
-    int write_bufs_n;
+    size_t write_bufs_n;
 } tcp_connection;
 
 static void server_accept_cb (uv_stream_t* tcp, int status);
@@ -187,7 +187,7 @@ static int connection_write (lua_State* L) {
     log_trace("connection %p write", con);
 
     int top = lua_gettop(L);
-    int write_n = top - 1;
+    size_t write_n = top - 1;
     if (con->write_bufs_n < write_n) {
         con->write_bufs = (uv_buf_t*)realloc(con->write_bufs, sizeof(uv_buf_t) * write_n);
         con->write_bufs_n = write_n;

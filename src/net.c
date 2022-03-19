@@ -184,7 +184,6 @@ static int connection_write_k (lua_State *L, int status, lua_KContext ctx);
 static int connection_write (lua_State* L) {
     tcp_connection* con = luvco_check_udata(L, 1, tcp_connection);
     con->L = L;
-    luvco_state* state = luvco_get_state(L);
     log_trace("connection %p write", con);
 
     int top = lua_gettop(L);

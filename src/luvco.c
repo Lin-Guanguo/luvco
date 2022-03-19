@@ -15,11 +15,6 @@ static void register_coro (lua_State* L) {
     lua_settable(L, LUA_REGISTRYINDEX);
 }
 
-static int unregister_coro_k (lua_State *L, int status, lua_KContext ctx) {
-    log_fatal("coro is unregistered, should not resume");
-    return 0;
-}
-
 static void unregister_coro (lua_State* L) {
     log_trace("unregister coro %p", L);
     lua_pushlightuserdata(L, (void*)L);
@@ -55,10 +50,6 @@ void luvco_resume(lua_State *L, int nargs) {
     }
 }
 
-static int spawn_local_k (lua_State* L, int status, lua_KContext ctx) {
-    return 0;
-}
-
 static int spawn_local (lua_State* L) {
     luaL_checktype(L, 1, LUA_TFUNCTION);
     lua_State* NL = lua_newthread(L);
@@ -73,7 +64,6 @@ static int spawn_local (lua_State* L) {
     return 0;
 }
 
-// TODO: auto call free_co
 static const luaL_Reg base_lib [] = {
     { "spawn_local", spawn_local },
     { NULL, NULL }

@@ -104,8 +104,8 @@ static int server_accept (lua_State* L) {
 
     ret = uv_accept((uv_stream_t*)server, (uv_stream_t*)client);
     if (ret < 0) {
-        server->waiting_accept = L;
         log_trace("server %p accpet no income, wait...", server);
+        server->waiting_accept = L;
         luvco_yield(L, (lua_KContext)NULL, server_accept_k);
     }
     log_trace("accept connection %p", client);
@@ -145,11 +145,11 @@ static int connection_read_k (lua_State *L, int status, lua_KContext ctx);
 
 static int connection_read (lua_State* L) {
     tcp_connection* con = luvco_check_udata(L, 1, tcp_connection);
-    con->L = L;
     log_trace("connection %p read", con);
 
     int ret = uv_read_start((uv_stream_t*)con, connection_alloc_cb, connection_read_cb);
     assert(ret == 0);
+    con->L = L;
     luvco_yield(L, (lua_KContext)NULL, connection_read_k);
 }
 
@@ -183,7 +183,6 @@ static int connection_write_k (lua_State *L, int status, lua_KContext ctx);
 
 static int connection_write (lua_State* L) {
     tcp_connection* con = luvco_check_udata(L, 1, tcp_connection);
-    con->L = L;
     log_trace("connection %p write", con);
 
     int top = lua_gettop(L);
@@ -204,6 +203,7 @@ static int connection_write (lua_State* L) {
     }
     int ret = uv_write(con->write_req, (uv_stream_t*)con, con->write_bufs, write_n, connection_write_cb);
     assert(ret == 0);
+    con->L = L;
     luvco_yield(L, (lua_KContext)NULL, connection_write_k);
 }
 
@@ -221,6 +221,7 @@ static void connection_write_cb (uv_write_t* req, int status) {
     luvco_resume(L, 1);
 }
 
+static int connection_close_k (lua_State *L, int status, lua_KContext ctx);
 static void connection_close_cb (uv_handle_t* handle);
 
 static int connection_close (lua_State *L) {
@@ -229,12 +230,19 @@ static int connection_close (lua_State *L) {
         log_trace("connection %p close", con);
         uv_close((uv_handle_t *)con, connection_close_cb);
         con->closed = true;
+        con->L = L;
+        luvco_yield(L, (lua_KContext)NULL, connection_close_k);
     }
     return 0;
 }
 
+static int connection_close_k (lua_State *L, int status, lua_KContext ctx) {
+    return 0;
+}
+
 static void connection_close_cb (uv_handle_t* handle) {
-    /* do nothing, memory in handled by lua vm */
+    tcp_connection* con = (tcp_connection*)handle;
+    luvco_resume(con->L, 0);
 }
 
 static int connection_gc (lua_State *L) {

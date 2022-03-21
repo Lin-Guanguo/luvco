@@ -24,6 +24,10 @@ typedef struct luvco_state {
 
 luvco_state* luvco_get_state (lua_State* L);
 
+#define luvco_pyield(handle, L, ctx, kf) \
+    (handle)->L = (L); \
+    luvco_yield((L), (lua_KContext)(ctx), (kf))
+
 void luvco_yield (lua_State *L, lua_KContext k_ctx, lua_KFunction k);
 
 void luvco_resume (lua_State *L, int nargs);

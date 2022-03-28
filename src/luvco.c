@@ -24,7 +24,6 @@ static void unregister_coro (lua_State* L) {
 
 // lua_state has only one shared luvco_state
 static luvco_state* luvco_init_state (lua_State* L) {
-    log_trace("init luvco state for %p", L);
     luvco_new_meta(L, luvco_state);
     lua_pop(L, 1);
     luvco_state* state = luvco_pushudata_with_meta(L, luvco_state);

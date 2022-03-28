@@ -48,7 +48,10 @@ void luvco_yield (lua_State *L, lua_KContext k_ctx, lua_KFunction k) {
 void luvco_resume(lua_State *L, int nargs) {
     int res;
     int ret = lua_resume(L, NULL, nargs, &res);
-    assert(res == 0);
+    if (res != 0) {
+        log_error("unexpected lua resume return");
+        luvco_dump_lua_stack(L);
+    }
     switch (ret) {
         case LUA_YIELD: break;
         case LUA_OK: unregister_coro(L); break;

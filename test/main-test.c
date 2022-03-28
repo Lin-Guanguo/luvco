@@ -34,8 +34,8 @@ int main() {
     luaL_openlibs(L);
     luaL_requiref(L, "luvco", luvco_open_base, 1);
     luaL_requiref(L, "luvco_net", luvco_open_net, 1);
-    lua_pop(L, 2);
 
+    lua_settop(L, 0);
     luaL_loadfile(L, "../lua/test.lua");
 
     luvco_state* state = luvco_init(L);

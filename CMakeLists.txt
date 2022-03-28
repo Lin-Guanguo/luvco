@@ -48,3 +48,12 @@ target_link_libraries(driver
     PUBLIC
     luvco
 )
+
+# bench-driver
+add_executable(bench-driver
+    bench/bench-driver.c
+)
+target_link_libraries(bench-driver
+    PUBLIC
+    luvco
+)

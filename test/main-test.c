@@ -38,7 +38,8 @@ int main() {
 
     luaL_loadfile(L, "../lua/test.lua");
 
-    luvco_run(L);
+    luvco_state* state = luvco_init(L);
+    luvco_run(state);
 
     printf("main end");
 }

@@ -20,5 +20,6 @@ int main(int argc, char **argv) {
     luaL_requiref(L, "luvco", luvco_open_base, 1);
     luaL_requiref(L, "luvco_net", luvco_open_net, 1);
     luaL_loadfile(L, argv[1]);
-    luvco_run(L);
+    luvco_state* state = luvco_init(L);
+    luvco_run(state);
 }

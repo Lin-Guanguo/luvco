@@ -20,6 +20,7 @@
 
 typedef struct luvco_state {
     uv_loop_t loop;
+    lua_State* main_coro;
 } luvco_state;
 
 luvco_state* luvco_get_state (lua_State* L);

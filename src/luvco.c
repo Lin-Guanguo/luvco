@@ -85,10 +85,16 @@ int luvco_open_base (lua_State* L) {
     return 1;
 }
 
-int luvco_run (lua_State* L) {
-    log_info("luvco run start\n");
+luvco_state* luvco_init (lua_State* L) {
+    log_trace("luvco init in L:%p", L);
     luvco_state* state = luvco_init_state(L);
-    luvco_resume(L, 0);
+    state->main_coro = L;
+    return state;
+}
+
+void luvco_run (luvco_state* state) {
+    log_trace("luvco run in State:%p", state);
+    luvco_resume(state->main_coro, 0);
     uv_run(&state->loop, UV_RUN_DEFAULT);
-    return 0;
+    log_trace("luvco end in State:%p", state);
 }

@@ -2,7 +2,11 @@
 #include <lua/lua.h>
 #include <uv.h>
 
-int luvco_run (lua_State* L);
+typedef struct luvco_state luvco_state;
+
+luvco_state* luvco_init (lua_State* L);
+
+void luvco_run (luvco_state* L);
 
 int luvco_open_base (lua_State* L);
 

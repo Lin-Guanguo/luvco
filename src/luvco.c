@@ -25,6 +25,8 @@ static void unregister_coro (lua_State* L) {
 // lua_state has only one shared luvco_state
 static luvco_state* luvco_init_state (lua_State* L) {
     log_trace("init luvco state for %p", L);
+    luvco_new_meta(L, luvco_state);
+    lua_pop(L, 1);
     luvco_state* state = luvco_pushudata_with_meta(L, luvco_state);
     uv_loop_init(&state->loop);
     lua_setfield(L, LUA_REGISTRYINDEX, "luvco.global_state");
@@ -82,16 +84,8 @@ int luvco_open_base (lua_State* L) {
 
 int luvco_run (lua_State* L) {
     log_info("luvco run start\n");
-
-    luvco_new_meta(L, luvco_state);
-    lua_pop(L, 1);
-
     luvco_state* state = luvco_init_state(L);
-
     luvco_resume(L, 0);
-
     uv_run(&state->loop, UV_RUN_DEFAULT);
     return 0;
 }
-
-

@@ -16,6 +16,8 @@
 #define luvco_check_udata(L, n, type) \
     (type*)luaL_checkudata((L), (n), "luvco."#type)
 
+#define container_of(ptr, type, member) (type*)((char*)(ptr) - (char*)(&(((type*)NULL)->member)))
+
 #define ASSERT_NOT_NULL(p) assert((p) != NULL)
 
 typedef struct luvco_state {

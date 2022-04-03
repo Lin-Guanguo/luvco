@@ -21,3 +21,4 @@ while true do
 end
 
 server:close()
+print("accept when close", server:accept())

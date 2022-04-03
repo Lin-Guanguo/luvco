@@ -93,6 +93,12 @@ static int server_accept (lua_State* L) {
     tcp_server* server = luvco_check_udata(L, 1, tcp_server);
     luvco_state* state = luvco_get_state(L);
 
+    // if closed, return nil when accept
+    if (server->closed) {
+        lua_pushnil(L);
+        return 1;
+    }
+
     tcp_connection* client = luvco_pushudata_with_meta(L, tcp_connection);
     client->closed = false;
     client->read_buf = NULL;

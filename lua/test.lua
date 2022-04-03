@@ -19,6 +19,8 @@ while true do
             local write_ret = connection:write(reads)
             if string.sub(reads, 1, 5) == "close" then
                 server:close();
+            elseif string.sub(reads, 1, 2) == "gc" then
+                collectgarbage("collect");
             end
         until string.sub(reads, 1, 4) == "quit"
         connection:close()

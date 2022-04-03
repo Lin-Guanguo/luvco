@@ -6,20 +6,45 @@
 #include <luvco.h>
 #include <luvco/tools.h>
 
+static const char* coro_table_name = "luvco.global_corotable";
+static int coro_table_count_index = 1;
+
 // top of stack is coroutine thread.
 // prevent gc collect coroutine
+//
+// regiter coro to global core table, key is lua_State udata
+// value is coroutine
 static void register_coro (lua_State* L) {
-    luaL_checktype(L, -1, LUA_TTHREAD);
-    lua_pushlightuserdata(L, (void*)L);
-    lua_pushvalue(L, -2);
-    lua_settable(L, LUA_REGISTRYINDEX);
+    luaL_checktype(L, -1, LUA_TTHREAD);                     // thread
+    lua_getfield(L, LUA_REGISTRYINDEX, coro_table_name);    // coro_table
+    lua_pushlightuserdata(L, (void*)L);                     // udata
+    lua_pushvalue(L, -3);                                   // thread
+    lua_settable(L, -3);                                    // set coro_table, pop 2: udata, thread
+
+    lua_geti(L, -1, coro_table_count_index);                // count
+    int count = lua_tointeger(L, -1);
+    lua_pop(L, 1);                                          // pop count
+    lua_pushinteger(L, count+1);                            // push count + 1
+    lua_seti(L, -2, coro_table_count_index);                // update count
+    lua_pop(L, 1);                                          // pop coro_table
 }
 
 static void unregister_coro (lua_State* L) {
     log_trace("unregister coro %p", L);
+    lua_getfield(L, LUA_REGISTRYINDEX, coro_table_name);
     lua_pushlightuserdata(L, (void*)L);
     lua_pushnil(L);
-    lua_settable(L, LUA_REGISTRYINDEX);
+    lua_settable(L, -3);
+
+    lua_geti(L, -1, coro_table_count_index);
+    int count = lua_tointeger(L, -1);
+    lua_pop(L, 1);
+    lua_pushinteger(L, count-1);
+    lua_seti(L, -2, coro_table_count_index);
+    if (count - 1 == 0) {
+        log_trace("all coro end, close state %p", L);
+        lua_close(L);
+    }
 }
 
 // lua_state has only one shared luvco_state
@@ -88,6 +113,11 @@ luvco_state* luvco_init (lua_State* L) {
     log_trace("luvco init in L:%p", L);
     luvco_state* state = luvco_init_state(L);
     state->main_coro = L;
+
+    lua_newtable(L);
+    lua_pushinteger(L, 1);
+    lua_seti(L, -2, coro_table_count_index);
+    lua_setfield(L, LUA_REGISTRYINDEX, coro_table_name);
     return state;
 }
 

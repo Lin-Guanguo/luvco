@@ -82,6 +82,7 @@ static void server_accept_cb (uv_stream_t* tcp, int status) {
         int ret = uv_accept((uv_stream_t*)server, (uv_stream_t*)connection);
         assert(ret == 0);
 
+        connection->closed = false;
         log_trace("accept connection %p", connection);
         luvco_resume(L, 1);
     }
@@ -102,7 +103,7 @@ static int server_accept (lua_State* L) {
     }
 
     tcp_connection* client = luvco_pushudata_with_meta(L, tcp_connection);
-    client->closed = false;
+    client->closed = true;
     client->read_buf = NULL;
     client->write_req = NULL;
     client->write_bufs = NULL;
@@ -115,6 +116,7 @@ static int server_accept (lua_State* L) {
         log_trace("server %p accpet no income, wait...", server);
         luvco_pyield(server, L, NULL, server_accept_k);
     }
+    client->closed = false;
     log_trace("accept connection %p", client);
     return 1;
 }

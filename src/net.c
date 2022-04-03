@@ -89,6 +89,8 @@ static void server_accept_cb (uv_stream_t* tcp, int status) {
 
 static int server_accept_k (lua_State *L, int status, lua_KContext ctx);
 
+// return connetion when succeed
+// return nil if server already closed or close when watting accept
 static int server_accept (lua_State* L) {
     tcp_server* server = luvco_check_udata(L, 1, tcp_server);
     luvco_state* state = luvco_get_state(L);
@@ -154,6 +156,9 @@ static void connection_alloc_cb (uv_handle_t* handle, size_t suggested_size, uv_
 static void connection_read_cb (uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf);
 static int connection_read_k (lua_State *L, int status, lua_KContext ctx);
 
+// return string when read succeed
+// return "" when read EOF
+// return nil when some error happen
 static int connection_read (lua_State* L) {
     tcp_connection* con = luvco_check_udata(L, 1, tcp_connection);
     log_trace("connection %p read", con);
@@ -196,6 +201,7 @@ static void connection_read_cb (uv_stream_t* stream, ssize_t nread, const uv_buf
 static void connection_write_cb (uv_write_t* req, int status);
 static int connection_write_k (lua_State *L, int status, lua_KContext ctx);
 
+// return 0 when write succeeded, <0 otherwise
 static int connection_write (lua_State* L) {
     tcp_connection* con = luvco_check_udata(L, 1, tcp_connection);
     log_trace("connection %p write", con);
@@ -238,6 +244,8 @@ static void connection_write_cb (uv_write_t* req, int status) {
 static int connection_close_k (lua_State *L, int status, lua_KContext ctx);
 static void connection_close_cb (uv_handle_t* handle);
 
+// close connection
+// close multi times is ok
 static int connection_close (lua_State *L) {
     tcp_connection* con = luvco_check_udata(L, 1, tcp_connection);
     if (!con->closed) {

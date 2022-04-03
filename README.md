@@ -22,4 +22,3 @@ make
 
 ## TODO
 
-* connection read 0 处理

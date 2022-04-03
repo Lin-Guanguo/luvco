@@ -183,9 +183,14 @@ static void connection_read_cb (uv_stream_t* stream, ssize_t nread, const uv_buf
     lua_State* L = con->L;
     if (nread > 0) {
         lua_pushlstring(L, buf->base, nread);
-        luvco_resume(L, 1);
+    } else if (nread == UV_EOF) {
+        log_trace("connection %p read eof", con);
+        lua_pushstring(L, "");
+    } else {
+        log_warn("connection %p read, some error happen, nread=%ld", con, nread);
+        lua_pushnil(L);
     }
-    // TODO
+    luvco_resume(L, 1);
 }
 
 static void connection_write_cb (uv_write_t* req, int status);

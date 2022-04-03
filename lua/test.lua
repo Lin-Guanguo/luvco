@@ -11,6 +11,11 @@ while true do
     luvco.spawn_local(function()
         repeat
             local reads = connection:read()
+            if #reads == 0 then
+                print ("read eof")
+                break
+            end
+
             local write_ret = connection:write(reads)
             if string.sub(reads, 1, 5) == "close" then
                 server:close();

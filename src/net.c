@@ -120,9 +120,15 @@ static void server_close_cb (uv_handle_t* handle);
 static int server_close (lua_State* L) {
     tcp_server* server = luvco_check_udata(L, 1, tcp_server);
     if (!server->closed) {
+        server->closed = 1;
         log_trace("server %p closed", server);
         uv_close((uv_handle_t*)server, server_close_cb);
-        server->closed = 1;
+
+        // close when accept directly return
+        if (server->L != NULL) {
+            lua_pushnil(server->L);
+            luvco_resume(server->L, 1);
+        }
     }
     return 0;
 }

@@ -23,4 +23,3 @@ make
 ## TODO
 
 * connection read 0 处理
-* server close when accept 处理

@@ -1,6 +1,8 @@
 local addr = luvco.net.new_ip4_addr("127.0.0.1", 8080)
 local server = luvco_net.new_server(addr)
 
+luvco.ispawn("print(\"in new state\")")
+
 while true do
     local connection = server:accept()
     if connection == nil then

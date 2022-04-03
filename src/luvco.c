@@ -99,8 +99,36 @@ static int spawn (lua_State* L) {
     return 0;
 }
 
+static int ispawn (lua_State *L) {
+    luaL_checkstring(L, 1);
+    size_t str_len;
+    const char* code = luaL_tolstring(L, 1, &str_len);
+
+    // TODO: pass alloc function;
+    lua_State* NL = luaL_newstate();
+    // TODO: pass libs
+    luaL_openlibs(NL);
+    luaL_requiref(NL, "luvco", luvco_open_base, 1);
+    luaL_requiref(NL, "luvco_net", luvco_open_net, 1);
+    lua_settop(NL, 0);
+
+    log_trace("ispawn from L:%p, NL:%p", L, NL);
+    luaL_loadbuffer(NL, code, str_len, "NL");
+
+    luvco_state* state = luvco_init_state(NL);
+    state->main_coro = NL;
+    lua_newtable(NL);
+    lua_pushinteger(NL, 1);
+    lua_seti(NL, -2, coro_table_count_index);
+    lua_setfield(NL, LUA_REGISTRYINDEX, coro_table_name);
+
+    luvco_resume(NL, 0);
+    return 0;
+}
+
 static const luaL_Reg base_lib [] = {
     { "spawn", spawn },
+    { "ispawn", ispawn },
     { NULL, NULL }
 };
 

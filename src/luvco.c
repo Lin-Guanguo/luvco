@@ -7,6 +7,7 @@
 #include <luvco/tools.h>
 
 static const char* coro_table_name = "luvco.global_corotable";
+static const char* luvco_state_name = "luvco.global_state";
 static int coro_table_count_index = 1;
 
 // top of stack is coroutine thread.
@@ -53,12 +54,12 @@ static luvco_state* luvco_init_state (lua_State* L) {
     lua_pop(L, 1);
     luvco_state* state = luvco_pushudata_with_meta(L, luvco_state);
     uv_loop_init(&state->loop);
-    lua_setfield(L, LUA_REGISTRYINDEX, "luvco.global_state");
+    lua_setfield(L, LUA_REGISTRYINDEX, luvco_state_name);
     return state;
 }
 
 luvco_state* luvco_get_state (lua_State* L) {
-    lua_getfield(L, LUA_REGISTRYINDEX, "luvco.global_state");
+    lua_getfield(L, LUA_REGISTRYINDEX, luvco_state_name);
     luvco_state* state = (luvco_state*)lua_touserdata(L, -1);
     lua_pop(L, 1);
     return state;

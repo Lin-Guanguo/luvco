@@ -60,7 +60,7 @@ void luvco_resume(lua_State *L, int nargs) {
     }
 }
 
-static int spawn_local (lua_State* L) {
+static int spawn (lua_State* L) {
     luaL_checktype(L, 1, LUA_TFUNCTION);
     lua_State* NL = lua_newthread(L);
     register_coro(L);
@@ -68,14 +68,14 @@ static int spawn_local (lua_State* L) {
     lua_pushvalue(L, 1); // copy function to top
     lua_xmove(L, NL, 1);  // pop function from L to NL
 
-    log_trace("spawn local from L:%p, NL:%p", L, NL);
+    log_trace("spawn from L:%p, NL:%p", L, NL);
 
     luvco_resume(NL, 0);
     return 0;
 }
 
 static const luaL_Reg base_lib [] = {
-    { "spawn_local", spawn_local },
+    { "spawn", spawn },
     { NULL, NULL }
 };
 

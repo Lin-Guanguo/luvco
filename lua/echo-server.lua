@@ -8,7 +8,7 @@ while true do
     end
 
     print ("lua: accpet return", connection)
-    luvco.spawn_local(function()
+    luvco.spawn(function()
         repeat
             local reads = connection:read()
             local write_ret = connection:write(reads)

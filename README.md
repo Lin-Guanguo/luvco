@@ -19,3 +19,8 @@ make
 运行`./main-test`可以运行测试程序
 
 运行`./driver`可以通过参数载入Lua文件。
+
+## TODO
+
+* connection read 0 处理
+* server close when accept 处理

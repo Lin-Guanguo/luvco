@@ -121,6 +121,14 @@ static int ispawn (lua_State *L) {
     return 0;
 }
 
+static void tmp_yield_cb (uv_idle_t* handle) {
+
+}
+
+static int tmp_yield (lua_State *L) {
+    return 0;
+}
+
 static int import_lib (lua_State *L) {
     const char* s = luaL_checkstring(L, 1);
     if (strcmp(s, "lualibs") == 0) {

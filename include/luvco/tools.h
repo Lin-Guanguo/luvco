@@ -8,10 +8,14 @@
 #include <luvco/log.h>
 #include <luvco.h>
 
-#define luvco_new_meta(L, type)          \
-    luaL_newmetatable((L), "luvco."#type);    \
-    lua_pushvalue((L), -1);                   \
-    lua_setfield((L), -2, "__index")
+extern const char* luvco_metadata_sizeof_record;
+
+#define luvco_new_meta(L, type) \
+    luaL_newmetatable((L), "luvco."#type); \
+    lua_pushvalue((L), -1); \
+    lua_setfield((L), -2, "__index"); \
+    lua_pushinteger((L), sizeof(type)); \
+    lua_setfield(L, -2, luvco_metadata_sizeof_record)
 
 #define luvco_pushudata_with_meta(L, type) \
     (type*)lua_newuserdatauv((L), sizeof(type), 0); \
@@ -43,19 +47,15 @@ void luvco_dump_lua_stack (lua_State *L);
 
 
 
-#define luvco_objheader unsigned char moved : 1;
 
-#define luvco_init_objheader(obj) (obj)->moved = false;
+typedef struct luvco_objhead {
+    bool moved;
+} luvco_objhead;
 
-#define luvco_checkmoved(L, obj) \
-    if ((obj)->moved) { \
-        log_error("luvco obj %p is moved", (obj)); \
-        luaL_error(L, "luvco obj %p is moved", (obj)); \
-    }
+#define luvco_init_objheader(head) (head)->moved = false;
 
-#define luvco_moveudata(L, NL, type) { \
-        type* to = luvco_pushudata_with_meta(NL, type); \
-        type* from = lua_touserdata(L, -1); \
-        memcpy(to, from, sizeof(type)); \
-        from->moved = true; \
+#define luvco_checkmoved(L, head) \
+    if ((head)->moved) { \
+        log_error("luvco obj %p is moved", (head)); \
+        luaL_error(L, "luvco obj %p is moved", (head)); \
     }

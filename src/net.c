@@ -224,7 +224,7 @@ static int connection_write (lua_State* L) {
     }
     if (con->write_req == NULL) {
         con->write_req = (uv_write_t*)malloc(sizeof(uv_write_t));
-        ASSERT_NOT_NULL(con->write_req);
+        assert(con->write_req != NULL);
     }
     int ret = uv_write(con->write_req, (uv_stream_t*)&con->tcp, con->write_bufs, write_n, connection_write_cb);
     assert(ret == 0);

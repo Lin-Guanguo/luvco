@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
     lua_settop(L, 0);
     luaL_loadfile(L, argv[1]);
 
-    luvco_state* state = luvco_init(L);
+    luvco_state* state = luvco_init(L, NULL, NULL);
     luvco_run(state);
 
     log_info("max memory %ul", data.max_memroy);

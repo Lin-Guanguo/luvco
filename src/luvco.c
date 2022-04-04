@@ -5,6 +5,8 @@
 #include <uv.h>
 #include <luvco.h>
 #include <luvco/tools.h>
+#include <stdlib.h>
+#include <string.h>
 
 static const char* coro_table_name = "luvco.global_corotable";
 static const char* luvco_state_name = "luvco.global_state";
@@ -49,13 +51,18 @@ static void unregister_coro (lua_State* L) {
 }
 
 // lua_state has only one shared luvco_state
-static luvco_state* luvco_init_state (lua_State* L) {
-    luvco_new_meta(L, luvco_state);
+static void luvco_init_luastate (lua_State* L, luvco_state* state, bool close_lua) {
+    luaL_requiref(L, "luvco", luvco_open_base, 1);
     lua_pop(L, 1);
-    luvco_state* state = luvco_pushudata_with_meta(L, luvco_state);
-    uv_loop_init(&state->loop);
+
+    lua_pushlightuserdata(L, state);
     lua_setfield(L, LUA_REGISTRYINDEX, luvco_state_name);
-    return state;
+
+    lua_newtable(L);
+    // if close_lua is false, init coro counter as 2, prevent lua_close
+    lua_pushinteger(L, close_lua ? 1 : 2);
+    lua_seti(L, -2, coro_table_count_index);
+    lua_setfield(L, LUA_REGISTRYINDEX, coro_table_name);
 }
 
 luvco_state* luvco_get_state (lua_State* L) {
@@ -101,35 +108,34 @@ static int spawn (lua_State* L) {
 }
 
 static int ispawn (lua_State *L) {
-    luaL_checkstring(L, 1);
     size_t str_len;
-    const char* code = luaL_tolstring(L, 1, &str_len);
+    const char* code = luaL_checklstring(L, 1, &str_len);
 
-    // TODO: pass alloc function;
-    lua_State* NL = luaL_newstate();
-    // TODO: pass libs
-    luaL_openlibs(NL);
-    luaL_requiref(NL, "luvco", luvco_open_base, 1);
-    luaL_requiref(NL, "luvco_net", luvco_open_net, 1);
-    lua_settop(NL, 0);
-
+    luvco_state* state = luvco_get_state(L);
+    lua_State* NL = (state->newluaf)(state->newluaf_ud);
     log_trace("ispawn from L:%p, NL:%p", L, NL);
+
     luaL_loadbuffer(NL, code, str_len, "NL");
-
-    luvco_state* state = luvco_init_state(NL);
-    state->main_coro = NL;
-    lua_newtable(NL);
-    lua_pushinteger(NL, 1);
-    lua_seti(NL, -2, coro_table_count_index);
-    lua_setfield(NL, LUA_REGISTRYINDEX, coro_table_name);
-
+    luvco_init_luastate(NL, state, true);
     luvco_resume(NL, 0);
     return 0;
+}
+
+static int import_lib (lua_State *L) {
+    const char* s = luaL_checkstring(L, 1);
+    if (strcmp(s, "lualibs") == 0) {
+        luaL_openlibs(L);
+        return 0;
+    } else if (strcmp(s, "net") == 0) {
+        luaL_requiref(L, "luvco_net", luvco_open_net, 0);
+    }
+    return 1;
 }
 
 static const luaL_Reg base_lib [] = {
     { "spawn", spawn },
     { "ispawn", ispawn },
+    { "import", import_lib },
     { NULL, NULL }
 };
 
@@ -138,15 +144,24 @@ int luvco_open_base (lua_State* L) {
     return 1;
 }
 
-luvco_state* luvco_init (lua_State* L) {
-    log_trace("luvco init in L:%p", L);
-    luvco_state* state = luvco_init_state(L);
-    state->main_coro = L;
+static lua_State* default_newluaf (void* ud) {
+    return luaL_newstate();
+}
 
-    lua_newtable(L);
-    lua_pushinteger(L, 1);
-    lua_seti(L, -2, coro_table_count_index);
-    lua_setfield(L, LUA_REGISTRYINDEX, coro_table_name);
+luvco_state* luvco_init (lua_State* L, luvco_newluaf f, void* f_ud) {
+    if (f == NULL) {
+        f = default_newluaf;
+    }
+
+    log_trace("luvco init main_coro L:%p", L);
+
+    luvco_state* state = malloc(sizeof(luvco_state));
+    state->main_coro = L;
+    state->newluaf = f;
+    state->newluaf_ud = f_ud;
+    uv_loop_init(&state->loop);
+
+    luvco_init_luastate(L, state, false);
     return state;
 }
 
@@ -155,4 +170,9 @@ void luvco_run (luvco_state* state) {
     luvco_resume(state->main_coro, 0);
     uv_run(&state->loop, UV_RUN_DEFAULT);
     log_trace("luvco end in State:%p", state);
+}
+
+void luvco_close (luvco_state* state) {
+    uv_loop_close(&state->loop);
+    free(state);
 }

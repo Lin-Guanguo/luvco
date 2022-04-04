@@ -20,9 +20,13 @@
 
 #define ASSERT_NOT_NULL(p) assert((p) != NULL)
 
+typedef lua_State* (*luvco_newluaf) (void* ud);
+
 typedef struct luvco_state {
     uv_loop_t loop;
     lua_State* main_coro;
+    luvco_newluaf newluaf;
+    void* newluaf_ud;
 } luvco_state;
 
 luvco_state* luvco_get_state (lua_State* L);

@@ -10,6 +10,7 @@ add_library(luvco
     ./src/log.c
     ./src/luvco.c
     ./src/net.c
+    ./src/chan
 )
 target_include_directories(luvco
     PUBLIC
@@ -27,15 +28,6 @@ add_executable(main-test
     test/main-test.c
 )
 target_link_libraries(main-test
-    PUBLIC
-    luvco
-)
-
-# test libuv
-add_executable(libuv-echo
-    test/libuv-echo.c
-)
-target_link_libraries(libuv-echo
     PUBLIC
     luvco
 )

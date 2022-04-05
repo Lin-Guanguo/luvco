@@ -47,6 +47,33 @@ void luvco_dump_lua_stack (lua_State *L);
 
 
 
+typedef struct luvco_ringbuf {
+    int len;
+    volatile int head;
+    volatile int tail;
+    void* ring[];
+} luvco_ringbuf;
+
+void luvco_ringbuf_init (luvco_ringbuf* r, int len);
+
+int luvco_ringbuf_push (luvco_ringbuf* r, void* data);
+
+int luvco_ringbuf_pop (luvco_ringbuf* r, void** data);
+
+typedef struct luvco_ringbuf2 {
+    int len;
+    volatile int head;
+    volatile int tail;
+    luvco_ringbuf* ring[];
+} luvco_ringbuf2;
+
+void luvco_ringbuf2_init (luvco_ringbuf2* r, int len, int firstbufsize);
+
+int luvco_ringbuf2_push (luvco_ringbuf2* r, void* data);
+
+int luvco_ringbuf2_pop (luvco_ringbuf2* r, void** data);
+
+
 
 typedef struct luvco_objhead {
     bool moved;

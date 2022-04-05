@@ -10,6 +10,7 @@ add_library(luvco
     ./src/log.c
     ./src/luvco.c
     ./src/net.c
+    ./src/ringbuf.c
     ./src/chan
 )
 target_include_directories(luvco

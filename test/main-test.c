@@ -7,12 +7,53 @@
 
 #include <luvco.h>
 #include <luvco/tools.h>
+#include <pthread.h>
+
+#include <stdatomic.h>
+
+long long push_failed_count;
+long long pop_failed_count;
+
+void* push_thread(void* buf) {
+    luvco_ringbuf2* r = (luvco_ringbuf2*)buf;
+    for (long long i = 0; i < 1000000; ++i) {
+        while (luvco_ringbuf2_push(r, (void*)i) != 0) {
+            push_failed_count++;
+        }
+    }
+    printf("push done\n");
+}
+
+void* pop_thread(void* buf) {
+    luvco_ringbuf2* r = (luvco_ringbuf2*)buf;
+    for (long long i = 0; i < 1000000; ++i) {
+        long long data;
+        while (luvco_ringbuf2_pop(r, (void**)&data) != 0) {
+            pop_failed_count++;
+        }
+        assert(data == i);
+    }
+    printf("pop done\n");
+}
+
+void test_struct () {
+    luvco_ringbuf2* r = (luvco_ringbuf2*)malloc(sizeof(luvco_ringbuf2) + sizeof(void*) * 8);
+    luvco_ringbuf2_init(r, 8, 8);
+    pthread_t t1;
+    pthread_t t2;
+    pthread_create(&t1, NULL, push_thread, (void*)r);
+    pthread_create(&t2, NULL, pop_thread, (void*)r);
+    pthread_join(t1, NULL);
+    pthread_join(t2, NULL);
+    printf("push failed count = %lld\n", push_failed_count);
+    printf("pop failed count = %lld", pop_failed_count);
+}
 
 int main(int argc, char **argv) {
+    test_struct();
+    return 0;
+
     lua_State *L = luaL_newstate();
-
-    lua_settop(L, 0);
-
     if (argc == 2) {
         luaL_loadfile(L, argv[1]);
     } else {

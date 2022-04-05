@@ -33,7 +33,17 @@ typedef struct luvco_gstate {
     void* newluaf_ud;
 } luvco_gstate;
 
+typedef struct luvco_ringbuf2 luvco_ringbuf2;
+
+typedef struct luvco_lstate {
+    // only push by eventloop thread.
+    // elements is lua_State*.
+    luvco_ringbuf2* toresume;
+} luvco_lstate;
+
 luvco_gstate* luvco_get_gstate (lua_State* L);
+
+luvco_lstate* luvco_get_lstate (lua_State* L);
 
 #define luvco_pyield(handle, L, ctx, kf) \
     (handle)->L = (L); \

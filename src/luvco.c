@@ -14,6 +14,21 @@ static int CORO_TABLE_COUNT_IDX = 1;
 static const char* GSTATE_FIELD = "luvco.global_state";
 static const char* LSTATE_FIELD = "luvco.local_state";
 
+static int RESUME_QUEUE_SIZE = 8;
+static int RESUME_QUEUE_BUF_SIZE = 8;
+
+static void local_state_init (luvco_lstate* lstate) {
+    log_trace("local state init %p", lstate);
+    lstate->toresume = (luvco_ringbuf2*)malloc(sizeof(luvco_ringbuf2) + sizeof(void*) * RESUME_QUEUE_SIZE);
+    luvco_ringbuf2_init(lstate->toresume, RESUME_QUEUE_SIZE, RESUME_QUEUE_BUF_SIZE);
+}
+
+static void local_state_delete (luvco_lstate* lstate) {
+    log_trace("local state delete %p", lstate);
+    luvco_ringbuf2_delete(lstate->toresume);
+    free(lstate->toresume);
+}
+
 // top of stack is coroutine thread.
 // prevent gc collect coroutine
 //
@@ -48,6 +63,8 @@ static void unregister_coro (lua_State* L) {
     lua_seti(L, -2, CORO_TABLE_COUNT_IDX);
     if (count - 1 == 0) {
         log_trace("all coro end, close state %p", L);
+        luvco_lstate* lstate = luvco_get_lstate(L);
+        local_state_delete(lstate);
         lua_close(L);
     }
 }
@@ -59,6 +76,9 @@ static void luvco_init_luastate (lua_State* L, luvco_gstate* state, bool close_l
 
     lua_pushlightuserdata(L, state);
     lua_setfield(L, LUA_REGISTRYINDEX, GSTATE_FIELD);
+    luvco_lstate* lstate = lua_newuserdatauv(L, sizeof(luvco_lstate), 0);
+    lua_setfield(L, LUA_REGISTRYINDEX, LSTATE_FIELD);
+    local_state_init(lstate);
 
     lua_newtable(L);
     // if close_lua is false, init coro counter as 2, prevent lua_close
@@ -70,6 +90,13 @@ static void luvco_init_luastate (lua_State* L, luvco_gstate* state, bool close_l
 luvco_gstate* luvco_get_gstate (lua_State* L) {
     lua_getfield(L, LUA_REGISTRYINDEX, GSTATE_FIELD);
     luvco_gstate* state = (luvco_gstate*)lua_touserdata(L, -1);
+    lua_pop(L, 1);
+    return state;
+}
+
+luvco_lstate* luvco_get_lstate (lua_State* L) {
+    lua_getfield(L, LUA_REGISTRYINDEX, LSTATE_FIELD);
+    luvco_lstate* state = (luvco_lstate*)lua_touserdata(L, -1);
     lua_pop(L, 1);
     return state;
 }
@@ -176,13 +203,25 @@ luvco_gstate* luvco_init (lua_State* L, luvco_newluaf f, void* f_ud) {
 }
 
 void luvco_run (luvco_gstate* state) {
-    log_trace("luvco run in State:%p", state);
+    log_trace("luvco run, global state:%p", state);
     luvco_resume(state->main_coro, 0);
     uv_run(&state->loop, UV_RUN_DEFAULT);
-    log_trace("luvco end in State:%p", state);
+    log_trace("luvco end, global state:%p", state);
 }
 
 void luvco_close (luvco_gstate* state) {
     uv_loop_close(&state->loop);
+
+    // clean main lua state
+    lua_State* L = state->main_coro;
+    luvco_lstate* lstate = luvco_get_lstate(L);
+    local_state_delete(lstate);
+    lua_pushnil(L);
+    lua_setfield(L, LUA_REGISTRYINDEX, GSTATE_FIELD);
+    lua_pushnil(L);
+    lua_setfield(L, LUA_REGISTRYINDEX, LSTATE_FIELD);
+    lua_pushnil(L);
+    lua_setfield(L, LUA_REGISTRYINDEX, CORO_TABLE_FIELD);
+
     free(state);
 }

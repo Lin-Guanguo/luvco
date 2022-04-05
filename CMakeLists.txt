@@ -24,23 +24,6 @@ target_link_libraries(luvco
     m
 )
 
-# test executable
-add_executable(main-test
-    test/main-test.c
-)
-target_link_libraries(main-test
-    PUBLIC
-    luvco
-)
-
-# driver
-add_executable(driver
-    test/driver.c
-)
-target_link_libraries(driver
-    PUBLIC
-    luvco
-)
-
+add_subdirectory(test)
 add_subdirectory(unittest)
 add_subdirectory(bench)

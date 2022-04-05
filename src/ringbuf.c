@@ -83,3 +83,12 @@ int luvco_ringbuf2_pop (luvco_ringbuf2* r, void** data) {
     return 0;
 }
 
+int luvco_ringbuf2_delete (luvco_ringbuf2* r) {
+    int head = r->head;
+    int tail = r->tail;
+    for (int i = head; i < tail; i++) {
+        free(r->ring[i]);
+    }
+    return 0;
+}
+

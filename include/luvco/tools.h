@@ -73,6 +73,8 @@ int luvco_ringbuf2_push (luvco_ringbuf2* r, void* data);
 
 int luvco_ringbuf2_pop (luvco_ringbuf2* r, void** data);
 
+int luvco_ringbuf2_delete (luvco_ringbuf2* r);
+
 
 
 typedef struct luvco_objhead {

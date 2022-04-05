@@ -42,11 +42,5 @@ target_link_libraries(driver
     luvco
 )
 
-# bench-driver
-add_executable(bench-driver
-    bench/bench-driver.c
-)
-target_link_libraries(bench-driver
-    PUBLIC
-    luvco
-)
+add_subdirectory(unittest)
+add_subdirectory(bench)

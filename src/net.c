@@ -58,7 +58,7 @@ static void server_accept_cb (uv_stream_t* tcp, int status);
 
 static int new_server (lua_State* L) {
     ip_addr* addr = luvco_check_udata(L, 1, ip_addr);
-    luvco_state* state = luvco_get_state(L);
+    luvco_gstate* state = luvco_get_gstate(L);
 
     tcp_server* server = luvco_pushudata_with_meta(L, tcp_server);
     server->L = NULL;
@@ -96,7 +96,7 @@ static int server_accept_k (lua_State *L, int status, lua_KContext ctx);
 // return nil if server already closed or close when watting accept
 static int server_accept (lua_State* L) {
     tcp_server* server = luvco_check_udata(L, 1, tcp_server);
-    luvco_state* state = luvco_get_state(L);
+    luvco_gstate* state = luvco_get_gstate(L);
 
     // if closed, return nil when accept
     if (server->closed) {

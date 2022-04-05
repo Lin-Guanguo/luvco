@@ -17,7 +17,7 @@ int main(int argc, char **argv) {
         luaL_loadfile(L, "../lua/test.lua");
     }
 
-    luvco_state* state = luvco_init(L, NULL, NULL);
+    luvco_gstate* state = luvco_init(L, NULL, NULL);
     luvco_run(state);
     luvco_close(state);
     lua_close(state->main_coro);

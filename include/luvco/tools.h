@@ -8,14 +8,14 @@
 #include <luvco/log.h>
 #include <luvco.h>
 
-extern const char* luvco_metadata_sizeof_record;
+extern const char* LUVCO_UDATAMETA_SIZEOF_FIELD;
 
 #define luvco_new_meta(L, type) \
     luaL_newmetatable((L), "luvco."#type); \
     lua_pushvalue((L), -1); \
     lua_setfield((L), -2, "__index"); \
     lua_pushinteger((L), sizeof(type)); \
-    lua_setfield(L, -2, luvco_metadata_sizeof_record)
+    lua_setfield(L, -2, LUVCO_UDATAMETA_SIZEOF_FIELD)
 
 #define luvco_pushudata_with_meta(L, type) \
     (type*)lua_newuserdatauv((L), sizeof(type), 0); \
@@ -26,14 +26,14 @@ extern const char* luvco_metadata_sizeof_record;
 
 #define container_of(ptr, type, member) (type*)((char*)(ptr) - (char*)(&(((type*)NULL)->member)))
 
-typedef struct luvco_state {
+typedef struct luvco_gstate {
     uv_loop_t loop;
     lua_State* main_coro;
     luvco_newluaf newluaf;
     void* newluaf_ud;
-} luvco_state;
+} luvco_gstate;
 
-luvco_state* luvco_get_state (lua_State* L);
+luvco_gstate* luvco_get_gstate (lua_State* L);
 
 #define luvco_pyield(handle, L, ctx, kf) \
     (handle)->L = (L); \

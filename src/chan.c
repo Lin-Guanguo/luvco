@@ -17,7 +17,7 @@ static void move_cross_lua(lua_State *from, lua_State *to) {
     lua_getmetatable(from, -1);
     lua_getfield(from, -1, "__name");
     const char* datatype = lua_tostring(from, -1);
-    lua_getfield(from, -2, luvco_metadata_sizeof_record);
+    lua_getfield(from, -2, LUVCO_UDATAMETA_SIZEOF_FIELD);
     int datasize = lua_tointeger(from, -1);
 
     luaL_getmetatable(to, datatype);

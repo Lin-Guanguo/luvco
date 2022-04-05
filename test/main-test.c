@@ -1,12 +1,11 @@
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <lua/lauxlib.h>
-#include <lua/lua.h>
-#include <lua/lualib.h>
-
 #include <luvco.h>
 #include <luvco/tools.h>
+
+#include <lua/lua.h>
+#include <lua/lauxlib.h>
+
+#include <stdio.h>
+#include <stdlib.h>
 
 
 int main(int argc, char **argv) {

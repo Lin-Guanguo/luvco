@@ -1,11 +1,10 @@
-#include <stdio.h>
-
-#include <lua/lua.h>
-#include <lua/lualib.h>
-#include <lua/lauxlib.h>
-
 #include <luvco.h>
 #include <luvco/log.h>
+
+#include <lua/lua.h>
+#include <lua/lauxlib.h>
+
+#include <stdio.h>
 
 int main(int argc, char **argv) {
     log_set_level(LOG_ERROR);

@@ -1,12 +1,12 @@
 #pragma once
-#include <assert.h>
-#include <stdbool.h>
-#include <string.h>
+#include <luvco.h>
+#include <luvco/log.h>
 
 #include <lua/lua.h>
 #include <lua/lauxlib.h>
-#include <luvco/log.h>
-#include <luvco.h>
+
+#include <stdbool.h>
+#include <string.h>
 
 extern const char* LUVCO_UDATAMETA_SIZEOF_FIELD;
 

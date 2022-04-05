@@ -1,12 +1,13 @@
-#include <stdlib.h>
-
-#include <lua/lauxlib.h>
-#include <lua/lua.h>
-#include <lua/lualib.h>
-
-#include <uv.h>
 #include <luvco.h>
 #include <luvco/tools.h>
+
+#include <lua/lua.h>
+#include <lua/lauxlib.h>
+#include <lua/lualib.h>
+#include <uv.h>
+
+#include <assert.h>
+#include <stdlib.h>
 
 typedef struct ip_addr {
     struct sockaddr_storage addr;

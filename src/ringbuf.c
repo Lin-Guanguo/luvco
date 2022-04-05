@@ -1,4 +1,6 @@
 #include <luvco/tools.h>
+
+#include <assert.h>
 #include <stdlib.h>
 
 #define RINGBUF2_FACTOR 2

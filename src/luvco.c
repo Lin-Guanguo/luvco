@@ -1,10 +1,11 @@
-#include <lua/lauxlib.h>
-#include <lua/lua.h>
-#include <lua/lualib.h>
-
-#include <uv.h>
 #include <luvco.h>
 #include <luvco/tools.h>
+
+#include <lua/lua.h>
+#include <lua/lauxlib.h>
+#include <lua/lualib.h>
+#include <uv.h>
+
 #include <stdlib.h>
 #include <string.h>
 

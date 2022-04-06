@@ -7,6 +7,7 @@
 
 #include <stdbool.h>
 #include <string.h>
+#include <stdatomic.h>
 
 extern const char* LUVCO_UDATAMETA_SIZEOF_FIELD;
 
@@ -56,6 +57,10 @@ void luvco_resume (lua_State *L, int nargs);
 void luvco_dump_lua_stack (lua_State *L);
 
 
+typedef atomic_flag luvco_spinlock;
+
+#define luvco_spinlock_lock(spin) while (atomic_flag_test_and_set(spin)) {}
+#define luvco_spinlock_unlock(spin) atomic_flag_clear(spin)
 
 typedef struct luvco_ringbuf {
     int len;

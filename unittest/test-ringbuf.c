@@ -13,12 +13,13 @@ static bool push_over = false;
 static bool pop_over = false;
 
 #define NLOOP 10000
+#define NTHREAD 10
 
 static void push_thread (void* buf) {
     luvco_ringbuf2* r = (luvco_ringbuf2*)buf;
-    for (long long i = 0; i < NLOOP; ++i) {
+    for (long long i = 0; i < NLOOP * NTHREAD / 2; ++i) {
         bool failed = false;
-        while (luvco_ringbuf2_push(r, (void*)i) != 0) {
+        while (luvco_ringbuf2_unlockpush(r, (void*)i) != 0) {
             if (!failed) {
                 push_failed_count++;
                 failed = true;
@@ -30,10 +31,10 @@ static void push_thread (void* buf) {
 
 static void pop_thread (void* buf) {
     luvco_ringbuf2* r = (luvco_ringbuf2*)buf;
-    for (long long i = 0; i < NLOOP; ++i) {
+    for (long long i = 0; i < NLOOP * NTHREAD / 2; ++i) {
         long long data;
         bool failed = false;
-        while (luvco_ringbuf2_pop(r, (void**)&data) != 0) {
+        while (luvco_ringbuf2_unlockpop(r, (void**)&data) != 0) {
             if (!failed) {
                 pop_failed_count++;
                 failed = true;
@@ -62,8 +63,6 @@ void test_ringbuf () {
     // printf("push failed count = %lld\n", push_failed_count);
     // printf("pop failed count = %lld\n", pop_failed_count);
 }
-
-#define NTHREAD 10
 
 static long long count = 0;
 static luvco_spinlock count_lock;
@@ -114,5 +113,8 @@ void test_ringbuf_withlock () {
     for (int i = 0; i < NTHREAD; i++) {
         uv_thread_join(&thread[i]);
     }
+
+    luvco_ringbuf2_delete(r);
+    free(r);
     TEST_ASSERT_EQUAL_INT64(NLOOP * NTHREAD / 2, count);
 }

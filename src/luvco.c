@@ -108,7 +108,7 @@ void luvco_yield (lua_State *L, lua_KContext k_ctx, lua_KFunction k) {
     lua_yieldk(L, 0, k_ctx, k);
 }
 
-void luvco_toresume(luvco_lstate* lstate, lua_State *L, int nargs) {
+void luvco_toresume (luvco_lstate* lstate, lua_State* L, int nargs) {
     assert(nargs >= 0 && nargs <= 3 && "args should between 0 and 3");
     assert(((intptr_t)L & 3) == 0 && "lua state not align, can't use low bit as flag");
 
@@ -116,9 +116,9 @@ void luvco_toresume(luvco_lstate* lstate, lua_State *L, int nargs) {
     luvco_ringbuf2_push(lstate->toresume, L);
 }
 
-void luvco_resume(lua_State *L) {
-    int nargs = (intptr_t)L & 3;
-    L = (lua_State*)((intptr_t)L & (~3));
+void luvco_resume (lua_State_flag* Lb) {
+    int nargs = (intptr_t)Lb & 3;
+    lua_State* L = (lua_State*)((intptr_t)Lb & (~3));
 
     int res;
     int ret = lua_resume(L, NULL, nargs, &res);

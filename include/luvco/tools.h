@@ -45,12 +45,14 @@ typedef struct luvco_lstate {
     luvco_ringbuf2* toresume;
 } luvco_lstate;
 
+typedef lua_State lua_State_flag; // use pointer'2 lower 2 bit as flag
+
 void luvco_dump_lua_stack (lua_State *L);
 luvco_gstate* luvco_get_gstate (lua_State* L);
 luvco_lstate* luvco_get_lstate (lua_State* L);
 void luvco_yield (lua_State *L, lua_KContext k_ctx, lua_KFunction k);
 void luvco_toresume (luvco_lstate* lstate, lua_State *L, int nargs);
-void luvco_resume (lua_State *L);
+void luvco_resume (lua_State_flag* L2);
 
 #define luvco_cbdata(n_ud) \
     lua_State* watting_L; luvco_lstate* watting_lstate; void* watting_ud[n_ud]

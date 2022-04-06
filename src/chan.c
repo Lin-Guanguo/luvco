@@ -45,8 +45,8 @@ static void move_cross_lua(lua_State *from, lua_State *to) {
 static int chan1_send (lua_State *L) {
     assert(((intptr_t)L & 1 == 0) && "lua_State's last bit is not zero, can't use as flag");
     luvco_chan1* ch = luvco_check_udata(L, 1, luvco_chan1);
-    lua_State* L1 = (lua_State*)((intptr_t)L | 1); // mean watting to send
-    lua_State* L2 = NULL;
+    lua_State_flag* L1 = (lua_State*)((intptr_t)L | 1); // mean watting to send
+    lua_State_flag* L2 = NULL;
     bool res = atomic_compare_exchange_strong(&ch->watting, &L2, (intptr_t)L1);
     if (res) {
         return 1;
@@ -56,7 +56,8 @@ static int chan1_send (lua_State *L) {
         return -1;
     }
     atomic_store(&ch->watting, 0);
-    move_cross_lua(L, L2);
+    lua_State* Lto = (lua_State*)L2;
+    move_cross_lua(L, Lto);
     return 0;
 }
 
@@ -64,8 +65,8 @@ static int chan1_send (lua_State *L) {
 static int chan1_recv (lua_State *L) {
     assert(((intptr_t)L & 1 == 0) && "lua_State's last bit is not zero, can't use as flag");
     luvco_chan1* ch = luvco_check_udata(L, 1, luvco_chan1);
-    lua_State* L1 = (lua_State*)((intptr_t)L | 0); // mean watting to recv
-    lua_State* L2 = NULL;
+    lua_State_flag* L1 = (lua_State*)((intptr_t)L | 0); // mean watting to recv
+    lua_State_flag* L2 = NULL;
     bool res = atomic_compare_exchange_strong(&ch->watting, &L2, (intptr_t)L1);
     if (res) {
         return 1;
@@ -75,8 +76,8 @@ static int chan1_recv (lua_State *L) {
         return -1;
     }
     atomic_store(&ch->watting, 0);
-    L2 = (lua_State*)((intptr_t)L2 & (~1));
-    move_cross_lua(L2, L);
+    lua_State* Lfrom = (lua_State*)((intptr_t)L2 & (~1));
+    move_cross_lua(Lfrom, L);
     return 0;
 }
 

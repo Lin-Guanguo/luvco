@@ -61,7 +61,7 @@ typedef struct luvco_ringbuf {
     int len;
     volatile int head;
     volatile int tail;
-    void* ring[];
+    void* volatile ring[];
 } luvco_ringbuf;
 
 void luvco_ringbuf_init (luvco_ringbuf* r, int len);
@@ -74,7 +74,7 @@ typedef struct luvco_ringbuf2 {
     int len;
     volatile int head;
     volatile int tail;
-    luvco_ringbuf* ring[];
+    luvco_ringbuf* volatile ring[];
 } luvco_ringbuf2;
 
 void luvco_ringbuf2_init (luvco_ringbuf2* r, int len, int firstbufsize);

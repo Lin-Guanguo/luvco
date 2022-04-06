@@ -1,18 +1,18 @@
 #include <luvco.h>
 #include <luvco/tools.h>
 
+#include <uv.h>
 #include <unity.h>
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
 
-long long push_failed_count;
-long long pop_failed_count;
-bool push_over = false;
-bool pop_over = false;
+static long long push_failed_count;
+static long long pop_failed_count;
+static bool push_over = false;
+static bool pop_over = false;
 
-void* push_thread (void* buf) {
+static void push_thread (void* buf) {
     luvco_ringbuf2* r = (luvco_ringbuf2*)buf;
     for (long long i = 0; i < 10000; ++i) {
         bool failed = false;
@@ -26,7 +26,7 @@ void* push_thread (void* buf) {
     push_over = true;
 }
 
-void* pop_thread (void* buf) {
+static void pop_thread (void* buf) {
     luvco_ringbuf2* r = (luvco_ringbuf2*)buf;
     for (long long i = 0; i < 10000; ++i) {
         long long data;
@@ -45,12 +45,14 @@ void* pop_thread (void* buf) {
 void test_ringbuf () {
     luvco_ringbuf2* r = (luvco_ringbuf2*)malloc(sizeof(luvco_ringbuf2) + sizeof(void*) * 8);
     luvco_ringbuf2_init(r, 8, 8);
-    pthread_t t1;
-    pthread_t t2;
-    pthread_create(&t1, NULL, push_thread, (void*)r);
-    pthread_create(&t2, NULL, pop_thread, (void*)r);
-    pthread_join(t1, NULL);
-    pthread_join(t2, NULL);
+
+    uv_thread_t t1;
+    uv_thread_t t2;
+    uv_thread_create(&t1, push_thread, (void*)r);
+    uv_thread_create(&t1, pop_thread, (void*)r);
+    uv_thread_join(&t1);
+    uv_thread_join(&t2);
+
     luvco_ringbuf2_delete(r);
     free(r);
     TEST_ASSERT_TRUE(push_over);

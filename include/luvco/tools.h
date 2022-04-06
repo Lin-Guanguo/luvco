@@ -40,8 +40,6 @@ typedef struct luvco_gstate {
 typedef struct luvco_ringbuf2 luvco_ringbuf2;
 
 typedef struct luvco_lstate {
-    // only push by eventloop thread.
-    // elements is lua_State*.
     luvco_ringbuf2* toresume;
 } luvco_lstate;
 

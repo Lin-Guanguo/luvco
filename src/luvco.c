@@ -1,5 +1,6 @@
 #include <luvco.h>
 #include <luvco/tools.h>
+#include <luvco/scheduler.h>
 
 #include <lua/lua.h>
 #include <lua/lauxlib.h>
@@ -7,6 +8,7 @@
 #include <uv.h>
 
 #include <stdlib.h>
+#include <assert.h>
 #include <string.h>
 
 static const char* CORO_TABLE_FIELD = "luvco.global_corotable";
@@ -106,7 +108,18 @@ void luvco_yield (lua_State *L, lua_KContext k_ctx, lua_KFunction k) {
     lua_yieldk(L, 0, k_ctx, k);
 }
 
-void luvco_resume(lua_State *L, int nargs) {
+void luvco_toresume(luvco_lstate* lstate, lua_State *L, int nargs) {
+    assert(nargs >= 0 && nargs <= 3 && "args should between 0 and 3");
+    assert(((intptr_t)L & 3) == 0 && "lua state not align, can't use low bit as flag");
+
+    L = (lua_State*)((intptr_t)L | nargs);
+    luvco_ringbuf2_push(lstate->toresume, L);
+}
+
+void luvco_resume(lua_State *L) {
+    int nargs = (intptr_t)L & 3;
+    L = (lua_State*)((intptr_t)L & (~3));
+
     int res;
     int ret = lua_resume(L, NULL, nargs, &res);
     if (res != 0) {
@@ -122,6 +135,10 @@ void luvco_resume(lua_State *L, int nargs) {
     }
 }
 
+static int spawn_k (lua_State *L, int status, lua_KContext ctx) {
+    return 0;
+}
+
 static int spawn (lua_State* L) {
     luaL_checktype(L, 1, LUA_TFUNCTION);
     lua_State* NL = lua_newthread(L);
@@ -132,7 +149,13 @@ static int spawn (lua_State* L) {
 
     log_trace("spawn from L:%p, NL:%p", L, NL);
 
-    luvco_resume(NL, 0);
+    luvco_lstate* lstate = luvco_get_lstate(L);
+    luvco_toresume(lstate, L, 0);
+    luvco_toresume(lstate, NL, 0);
+    luvco_yield(L, (lua_KContext)NULL, spawn_k);
+}
+
+static int ispawn_k (lua_State *L, int status, lua_KContext ctx) {
     return 0;
 }
 
@@ -146,8 +169,12 @@ static int ispawn (lua_State *L) {
 
     luaL_loadbuffer(NL, code, str_len, "NL");
     luvco_init_luastate(NL, state, true);
-    luvco_resume(NL, 0);
-    return 0;
+    luvco_lstate* lstate = luvco_get_lstate(L);
+    luvco_lstate* nlstate = luvco_get_lstate(NL);
+    luvco_toresume(lstate, L, 0);
+    luvco_toresume(nlstate, NL, 0);
+    luvco_scheduler_addwork(state->scheduler, nlstate);
+    luvco_yield(L, (lua_KContext)NULL, ispawn_k);
 }
 
 static void tmp_yield_cb (uv_idle_t* handle) {
@@ -202,10 +229,27 @@ luvco_gstate* luvco_init (lua_State* L, luvco_newluaf f, void* f_ud) {
     return state;
 }
 
+#define NPROCESS 4
+
+static void prevent_quit (uv_idle_t* handle) {
+    // TODO: quit when all lua_State execute over
+}
+
 void luvco_run (luvco_gstate* state) {
     log_trace("luvco run, global state:%p", state);
-    luvco_resume(state->main_coro, 0);
+
+    luvco_scheduler* s = (luvco_scheduler*)malloc(luvco_scheduler_sizeof(NPROCESS));
+    luvco_scheduler_init(s, NPROCESS);
+    state->scheduler = s;
+    luvco_lstate* lstate = luvco_get_lstate(state->main_coro);
+    luvco_toresume(lstate, state->main_coro, 0);
+    luvco_scheduler_addwork(s, lstate);
+
+    uv_idle_t idle;
+    uv_idle_init(&state->loop, &idle);
+    uv_idle_start(&idle, prevent_quit);
     uv_run(&state->loop, UV_RUN_DEFAULT);
+
     log_trace("luvco end, global state:%p", state);
 }
 

@@ -12,6 +12,7 @@ add_library(luvco
     ./src/net.c
     ./src/ringbuf.c
     ./src/chan
+    ./src/scheduler.c
 )
 target_include_directories(luvco
     PUBLIC

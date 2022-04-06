@@ -22,4 +22,6 @@ make
 
 ## TODO
 
-* Multi thread model
+* Eventloop Graceful quit
+* Chan1 send
+* waiting data refactor

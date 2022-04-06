@@ -27,11 +27,14 @@ extern const char* LUVCO_UDATAMETA_SIZEOF_FIELD;
 
 #define container_of(ptr, type, member) (type*)((char*)(ptr) - (char*)(&(((type*)NULL)->member)))
 
+typedef struct luvco_scheduler luvco_scheduler;
+
 typedef struct luvco_gstate {
     uv_loop_t loop;
     lua_State* main_coro;
     luvco_newluaf newluaf;
     void* newluaf_ud;
+    luvco_scheduler* scheduler;
 } luvco_gstate;
 
 typedef struct luvco_ringbuf2 luvco_ringbuf2;
@@ -42,19 +45,19 @@ typedef struct luvco_lstate {
     luvco_ringbuf2* toresume;
 } luvco_lstate;
 
-luvco_gstate* luvco_get_gstate (lua_State* L);
-
-luvco_lstate* luvco_get_lstate (lua_State* L);
-
-#define luvco_pyield(handle, L, ctx, kf) \
-    (handle)->L = (L); \
-    luvco_yield((L), (lua_KContext)(ctx), (kf))
-
-void luvco_yield (lua_State *L, lua_KContext k_ctx, lua_KFunction k);
-
-void luvco_resume (lua_State *L, int nargs);
-
 void luvco_dump_lua_stack (lua_State *L);
+luvco_gstate* luvco_get_gstate (lua_State* L);
+luvco_lstate* luvco_get_lstate (lua_State* L);
+void luvco_yield (lua_State *L, lua_KContext k_ctx, lua_KFunction k);
+void luvco_toresume (luvco_lstate* lstate, lua_State *L, int nargs);
+void luvco_resume (lua_State *L);
+
+#define luvco_cbdata(n_ud) \
+    lua_State* watting_L; luvco_lstate* watting_lstate; void* watting_ud[n_ud]
+
+#define luvco_toresume_incb(obj, nargs) \
+    luvco_toresume((obj)->watting_lstate, (obj)->watting_L, (nargs))
+
 
 
 typedef atomic_flag luvco_spinlock;
@@ -93,7 +96,6 @@ int luvco_ringbuf2_unlockpush (luvco_ringbuf2* r, void* data);
 int luvco_ringbuf2_pop (luvco_ringbuf2* r, void** data);
 int luvco_ringbuf2_unlockpop (luvco_ringbuf2* r, void** data);
 int luvco_ringbuf2_delete (luvco_ringbuf2* r);
-
 
 
 typedef struct luvco_objhead {

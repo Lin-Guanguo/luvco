@@ -20,6 +20,8 @@ static void addcount (void* a) {
 };
 
 void test_spinlock () {
+    luvco_spinlock_init(&lock);
+
     uv_thread_t thread[NTHREAD];
     for (int i = 0; i < NTHREAD; i++) {
         uv_thread_create(&thread[i], addcount, NULL);
@@ -27,5 +29,5 @@ void test_spinlock () {
     for (int i = 0; i < NTHREAD; i++) {
         uv_thread_join(&thread[i]);
     }
-    TEST_ASSERT_EQUAL_INT64(count, NTHREAD * NLOOP);
+    TEST_ASSERT_EQUAL_INT64(NTHREAD * NLOOP, count);
 }

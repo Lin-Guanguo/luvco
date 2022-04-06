@@ -59,6 +59,7 @@ void luvco_dump_lua_stack (lua_State *L);
 
 typedef atomic_flag luvco_spinlock;
 
+#define luvco_spinlock_init(spin) atomic_flag_clear(spin)
 #define luvco_spinlock_lock(spin) while (atomic_flag_test_and_set(spin)) {}
 #define luvco_spinlock_unlock(spin) atomic_flag_clear(spin)
 
@@ -66,28 +67,31 @@ typedef struct luvco_ringbuf {
     int len;
     volatile int head;
     volatile int tail;
+    luvco_spinlock pushlock;
+    luvco_spinlock poplock;
     void* volatile ring[];
 } luvco_ringbuf;
 
 void luvco_ringbuf_init (luvco_ringbuf* r, int len);
-
 int luvco_ringbuf_push (luvco_ringbuf* r, void* data);
-
+int luvco_ringbuf_unlockpush (luvco_ringbuf* r, void* data);
 int luvco_ringbuf_pop (luvco_ringbuf* r, void** data);
+int luvco_ringbuf_unlockpop (luvco_ringbuf* r, void** data);
 
 typedef struct luvco_ringbuf2 {
     int len;
     volatile int head;
     volatile int tail;
+    luvco_spinlock pushlock;
+    luvco_spinlock poplock;
     luvco_ringbuf* volatile ring[];
 } luvco_ringbuf2;
 
 void luvco_ringbuf2_init (luvco_ringbuf2* r, int len, int firstbufsize);
-
 int luvco_ringbuf2_push (luvco_ringbuf2* r, void* data);
-
+int luvco_ringbuf2_unlockpush (luvco_ringbuf2* r, void* data);
 int luvco_ringbuf2_pop (luvco_ringbuf2* r, void** data);
-
+int luvco_ringbuf2_unlockpop (luvco_ringbuf2* r, void** data);
 int luvco_ringbuf2_delete (luvco_ringbuf2* r);
 
 

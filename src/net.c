@@ -1,5 +1,6 @@
 #include <luvco.h>
 #include <luvco/tools.h>
+#include <luvco/object.h>
 
 #include <lua/lua.h>
 #include <lua/lauxlib.h>

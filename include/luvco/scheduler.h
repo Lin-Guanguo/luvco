@@ -1,3 +1,4 @@
+#pragma once
 #include <luvco/tools.h>
 
 #include <uv.h>

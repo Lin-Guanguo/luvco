@@ -1,4 +1,5 @@
 #include <luvco/tools.h>
+#include <luvco/object.h>
 
 #include <assert.h>
 #include <stdlib.h>

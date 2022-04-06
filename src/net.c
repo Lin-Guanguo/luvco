@@ -109,7 +109,6 @@ static int server_accept (lua_State* L) {
         return 1;
     }
 
-    lua_settop(L, 0);
     tcp_connection* client = luvco_pushudata_with_meta(L, tcp_connection);
     client->closed = true;
     client->read_buf = NULL;
@@ -145,7 +144,7 @@ static int server_close (lua_State* L) {
         if (server->watting_L != NULL) {
             lua_settop(L, 0);
             lua_pushnil(server->watting_L);
-            luvco_resume(server->watting_L);
+            luvco_toresume_incb(server, 1);
         }
     }
     return 0;

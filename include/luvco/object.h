@@ -33,7 +33,7 @@ typedef struct luvco_objhead {
 #define luvco_init_objheader(head) (head)->moved = false;
 
 #define luvco_checkmoved(L, head) \
-    if ((head)->moved) { \
-        log_error("luvco obj %p is moved", (head)); \
-        luaL_error(L, "luvco obj %p is moved", (head)); \
+    if (((luvco_objhead*)(head))->moved) { \
+        log_error("luvco obj %p is moved, can't use", (head)); \
+        luaL_error(L, "luvco obj %p is moved, can't use", (head)); \
     }

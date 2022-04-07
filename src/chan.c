@@ -25,7 +25,7 @@ static void move_cross_lua(lua_State *from, lua_State *to) {
 
     luaL_getmetatable(to, datatype);
     int ty = lua_type(to, -1);
-    if (ty = LUA_TNIL) {
+    if (ty == LUA_TNIL) {
         log_warn("chan receiver hanven't import corresponding package");
         lua_pop(to, 1);
         lua_pushnil(to);
@@ -37,9 +37,8 @@ static void move_cross_lua(lua_State *from, lua_State *to) {
         //
         lua_setmetatable(to, -2);
         memcpy(newdata, data, datasize);
-        data->moved = true;
     }
-    lua_pop(from, 4);
+    lua_pop(from, 4); // udata, metatable, __name, __sizeof
 }
 
 // return 0 mean ok, -1 mean error, 1 mean watting
@@ -94,56 +93,3 @@ typedef struct chan1_recver {
 
 
 
-
-
-
-
-
-typedef struct luvco_chan {
-    void** loop_buf;
-    int len;
-    volatile int head;
-    volatile int tail;
-
-    atomic_char owner;
-} luvco_chan;
-
-int luvco_chan_init (luvco_chan* ch, int len) {
-    ch->loop_buf = (void**)malloc(sizeof(void*) * (len+1));
-    ch->len = len + 1; // reserve one to check buf is full
-    ch->head = 0;
-    ch->tail = 0;
-    atomic_init(&ch->owner, 2);
-}
-
-// chan has a sender and receiver, is drop twice, the chan memory will free
-int luvco_chan_drop (luvco_chan* ch) {
-    char i = atomic_fetch_sub(&ch->owner, 1);
-    assert (i >= 0);
-    if (i == 0) {
-        free(ch);
-    }
-}
-
-int luvco_chan_push (luvco_chan* ch, void* data) {
-    int old_tail = ch->tail;
-    int next_tail = (old_tail + 1) % ch->len;
-    if (next_tail == ch->head) {
-        return -1;
-    } else {
-        ch->loop_buf[old_tail] = data;
-        ch->tail = next_tail;
-        return 0;
-    }
-}
-
-int luvco_chan_pop (luvco_chan* ch, void** data) {
-    int old_head = ch->head;
-    if (old_head == ch->tail) {
-        return -1;
-    } else {
-        *data = ch->loop_buf[old_head];
-        ch->head = (old_head + 1) % ch->len;
-        return 0;
-    }
-}

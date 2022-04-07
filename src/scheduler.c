@@ -51,13 +51,20 @@ static void scheduler_thread_cb (void* arg) {
                 continue;
             }
         }
+        int resumeret = 0;
         while ((ret = luvco_ringbuf2_pop(lstate->toresume, (void**)&L)) == 0) {
             log_trace("Thread %p resume L:%p", arg, L);
-            luvco_resume(L);
+            resumeret = luvco_resume(L);
+
+            // if all coro end, lua_State has been close, pop from lstate will crash
+            if (resumeret == 1) break;
         }
 
-        // TODO: watting list
-        luvco_ringbuf2_spinpush(pdata->worklist, lstate);
+        if (resumeret == 1) {
+            log_trace("all coro end lstate:%p, remove from process worklist", lstate);
+        } else {
+            luvco_ringbuf2_spinpush(pdata->worklist, lstate);
+        }
     }
 }
 

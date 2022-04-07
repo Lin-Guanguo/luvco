@@ -50,7 +50,10 @@ luvco_gstate* luvco_get_gstate (lua_State* L);
 luvco_lstate* luvco_get_lstate (lua_State* L);
 void luvco_yield (lua_State *L, lua_KContext k_ctx, lua_KFunction k);
 void luvco_toresume (luvco_lstate* lstate, lua_State *L, int nargs);
-void luvco_resume (lua_State_flag* L2);
+
+// return 1 if all coro end
+// return -1 if error happen
+int luvco_resume (lua_State_flag* L2);
 
 
 

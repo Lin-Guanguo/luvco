@@ -71,7 +71,6 @@ static void server_accept_cb (uv_stream_t* tcp, int status) {
         assert(ret == 0);
 
         con->closed = false;
-        log_trace("accept connection %p", tcp);
         luvco_toresume(lstate, L, 1); // one res is connection, push in accept
     }
 }
@@ -94,6 +93,7 @@ static int new_server (lua_State* L) {
 }
 
 static int server_accept_k (lua_State *L, int status, lua_KContext ctx) {
+    log_trace("accept connection %p", (void*)ctx);
     return 1;
 }
 
@@ -120,12 +120,11 @@ static int server_accept (lua_State* L) {
 
     ret = uv_accept((uv_stream_t*)&server->tcp, (uv_stream_t*)&client->tcp);
     if (ret < 0) {
-        log_trace("server %p accpet no income, wait...", server);
+        // log_trace("server %p accpet no income, wait...", server);
         luvco_cbdata_set1(server, L, client);
-        luvco_yield(L, (lua_KContext)NULL, server_accept_k);
+        luvco_yield(L, (lua_KContext)client, server_accept_k);
     }
     client->closed = false;
-    log_trace("accept connection %p", client);
     return 1;
 }
 
@@ -169,7 +168,7 @@ static void connection_alloc_cb (uv_handle_t* handle, size_t suggested_size, uv_
 static void connection_read_cb (uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
     uv_read_stop(stream); // one shot read
     tcp_connection* con = container_of(stream, tcp_connection, tcp);
-    log_trace("connection read cb called %p", con);
+    // log_trace("connection read cb called %p", con);
 
     con->watting_ud[0] = (void*)nread;
     con->watting_ud[1] = (void*)buf;

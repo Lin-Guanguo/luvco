@@ -46,7 +46,7 @@ static void pop_thread (void* buf) {
 }
 
 void test_ringbuf () {
-    luvco_ringbuf2* r = (luvco_ringbuf2*)malloc(sizeof(luvco_ringbuf2) + sizeof(void*) * 8);
+    luvco_ringbuf2* r = (luvco_ringbuf2*)malloc(luvco_ringbuf2_sizeof(8));
     luvco_ringbuf2_init(r, 8, 8);
 
     uv_thread_t t1;
@@ -99,7 +99,7 @@ static void pop_thread2 (void* buf) {
 }
 
 void test_ringbuf_withlock () {
-    luvco_ringbuf2* r = (luvco_ringbuf2*)malloc(sizeof(luvco_ringbuf2) + sizeof(void*) * 8);
+    luvco_ringbuf2* r = (luvco_ringbuf2*)malloc(luvco_ringbuf2_sizeof(8));
     luvco_ringbuf2_init(r, 8, 8);
 
     uv_thread_t thread[NTHREAD];

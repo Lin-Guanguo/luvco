@@ -5,6 +5,28 @@
 
 #define RINGBUF2_FACTOR 2
 
+typedef struct luvco_ringbuf {
+    int len;
+    volatile int head;
+    volatile int tail;
+    luvco_spinlock pushlock;
+    luvco_spinlock poplock;
+    void* volatile ring[];
+} luvco_ringbuf;
+
+typedef struct luvco_ringbuf2 {
+    int len;
+    volatile int head;
+    volatile int tail;
+    luvco_spinlock pushlock;
+    luvco_spinlock poplock;
+    luvco_ringbuf* volatile ring[];
+} luvco_ringbuf2;
+
+size_t luvco_ringbuf_sizeof (int len) {
+    return sizeof(luvco_ringbuf) + sizeof(void*) * len;
+}
+
 void luvco_ringbuf_init (luvco_ringbuf* r, int len) {
     r->len = len;
     r->head = 0;
@@ -47,6 +69,10 @@ int luvco_ringbuf_pop (luvco_ringbuf* r, void** data) {
     int ret = luvco_ringbuf_unlockpop(r, data);
     luvco_spinlock_unlock(&r->poplock);
     return ret;
+}
+
+size_t luvco_ringbuf2_sizeof (int len) {
+    return sizeof(luvco_ringbuf2) + sizeof(void*) * len;
 }
 
 void luvco_ringbuf2_init (luvco_ringbuf2* r, int len, int firstbufsize) {

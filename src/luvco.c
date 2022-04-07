@@ -21,7 +21,7 @@ static int RESUME_QUEUE_BUF_SIZE = 8;
 
 static void local_state_init (luvco_lstate* lstate) {
     log_trace("local state init %p", lstate);
-    lstate->toresume = (luvco_ringbuf2*)malloc(sizeof(luvco_ringbuf2) + sizeof(void*) * RESUME_QUEUE_SIZE);
+    lstate->toresume = (luvco_ringbuf2*)malloc(luvco_ringbuf2_sizeof(RESUME_QUEUE_SIZE));
     luvco_ringbuf2_init(lstate->toresume, RESUME_QUEUE_SIZE, RESUME_QUEUE_BUF_SIZE);
 }
 

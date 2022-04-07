@@ -6,6 +6,23 @@
 #include <assert.h>
 #include <stdlib.h>
 
+typedef struct luvco_process_data {
+    uv_thread_t thread;
+
+    // element is luvco_lstate
+    // push in eventloop thread
+    // pop by this process or steal by other process
+    luvco_ringbuf2* worklist;
+
+    struct luvco_process_data* nextprocess;
+} luvco_process_data;
+
+typedef struct luvco_scheduler {
+    int nprocess;
+    luvco_process_data pdata[];
+} luvco_scheduler;
+
+
 #define PROCESS_WORKBUF_LEN 4
 #define PROCESS_WORKBUF_FIRST_LEN 8
 
@@ -48,7 +65,7 @@ void luvco_scheduler_init (luvco_scheduler* s, int nprocess) {
     s->nprocess = nprocess;
     for (int i = 0; i < nprocess; i++) {
         luvco_process_data* pdata = &s->pdata[i];
-        pdata->worklist = (luvco_ringbuf2*)malloc(sizeof(luvco_ringbuf2) + sizeof(void*) * PROCESS_WORKBUF_LEN);
+        pdata->worklist = (luvco_ringbuf2*)malloc(luvco_ringbuf2_sizeof(PROCESS_WORKBUF_LEN));
         luvco_ringbuf2_init(pdata->worklist, PROCESS_WORKBUF_LEN, PROCESS_WORKBUF_FIRST_LEN);
         pdata->nextprocess = &s->pdata[(i+1) % nprocess];
     }

@@ -113,7 +113,7 @@ void luvco_toresume (luvco_lstate* lstate, lua_State* L, int nargs) {
     assert(((intptr_t)L & 3) == 0 && "lua state not align, can't use low bit as flag");
 
     L = (lua_State*)((intptr_t)L | nargs);
-    luvco_ringbuf2_push(lstate->toresume, L);
+    luvco_ringbuf2_spinpush(lstate->toresume, L);
 }
 
 void luvco_resume (lua_State_flag* Lb) {

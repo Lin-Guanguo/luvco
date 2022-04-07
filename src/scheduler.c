@@ -57,7 +57,7 @@ static void scheduler_thread_cb (void* arg) {
         }
 
         // TODO: watting list
-        luvco_ringbuf2_push(pdata->worklist, lstate);
+        luvco_ringbuf2_spinpush(pdata->worklist, lstate);
     }
 }
 
@@ -82,6 +82,6 @@ size_t luvco_scheduler_sizeof (int nprocess) {
 int luvco_scheduler_addwork (luvco_scheduler* s, luvco_lstate* l) {
     int i = rand() % s->nprocess;
     luvco_process_data* pdata = &s->pdata[i];
-    luvco_ringbuf2_push(pdata->worklist, (void*)l);
+    luvco_ringbuf2_spinpush(pdata->worklist, (void*)l);
     return 0;
 }

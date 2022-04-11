@@ -23,11 +23,10 @@ extern const char* LUVCO_UDATAMETA_MOVEABLE_FIELD;
     (type*)lua_newuserdatauv((L), sizeof(type), 0); \
     luaL_setmetatable((L), "luvco."#type)
 
-
-
-
 #define luvco_check_udata(L, n, type) \
     (type*)luaL_checkudata((L), (n), "luvco."#type)
+
+
 
 #define luvco_cbdata(n_ud) \
     lua_State* watting_L; luvco_lstate* watting_lstate; void* watting_ud[n_ud]
@@ -55,14 +54,15 @@ extern const char* LUVCO_UDATAMETA_MOVEABLE_FIELD;
     luvco_toresume((obj)->watting_lstate, (obj)->watting_L, (nargs))
 
 
-typedef struct luvco_objhead {
-    bool moved;
-} luvco_objhead;
 
-#define luvco_init_objheader(head) (head)->moved = false;
+typedef struct luvco_objhead_moveable {
+    bool moved;
+} luvco_objhead_moveable;
+
+#define luvco_init_objhead(head) (head)->moved = false;
 
 #define luvco_checkmoved(L, head) \
-    if (((luvco_objhead*)(head))->moved) { \
+    if (((luvco_objhead_moveable*)(head))->moved) { \
         log_error("luvco obj %p is moved, can't use", (head)); \
         luaL_error(L, "luvco obj %p is moved, can't use", (head)); \
     }

@@ -1,5 +1,6 @@
 #include <luvco.h>
 #include <luvco/tools.h>
+#include <luvco/object.h>
 #include <luvco/scheduler.h>
 
 #include <lua/lua.h>

@@ -2,8 +2,6 @@
 #include <lua/lualib.h>
 #include <lua/lauxlib.h>
 
-const char* LUVCO_UDATAMETA_SIZEOF_FIELD = "__sizeof";
-
 void luvco_dump_lua_stack (lua_State* L) {
   int top=lua_gettop(L);
   printf("L: %p dumpstack: \n", L);

@@ -11,6 +11,7 @@ add_library(luvco
     ./src/luvco.c
     ./src/net.c
     ./src/ringbuf.c
+    ./src/object.c
     ./src/chan
     ./src/scheduler.c
 )

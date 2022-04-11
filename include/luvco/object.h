@@ -1,5 +1,34 @@
 #pragma once
 
+extern const char* LUVCO_UDATAMETA_SIZEOF_FIELD;
+extern const char* LUVCO_UDATAMETA_MOVEABLE_FIELD;
+
+#define luvco_new_meta(L, type) \
+    luaL_newmetatable((L), "luvco."#type); \
+    lua_pushvalue((L), -1); \
+    lua_setfield((L), -2, "__index"); \
+    lua_pushinteger((L), sizeof(type)); \
+    lua_setfield(L, -2, LUVCO_UDATAMETA_SIZEOF_FIELD)
+
+#define luvco_new_meta_moveable(L, type) \
+    luaL_newmetatable((L), "luvco."#type); \
+    lua_pushvalue((L), -1); \
+    lua_setfield((L), -2, "__index"); \
+    lua_pushinteger((L), sizeof(type)); \
+    lua_setfield(L, -2, LUVCO_UDATAMETA_SIZEOF_FIELD) \
+    lua_pushboolean((L), true) \
+    lua_setfield(L, -2, LUVCO_UDATAMETA_MOVEABLE_FIELD)
+
+#define luvco_pushudata_with_meta(L, type) \
+    (type*)lua_newuserdatauv((L), sizeof(type), 0); \
+    luaL_setmetatable((L), "luvco."#type)
+
+
+
+
+#define luvco_check_udata(L, n, type) \
+    (type*)luaL_checkudata((L), (n), "luvco."#type)
+
 #define luvco_cbdata(n_ud) \
     lua_State* watting_L; luvco_lstate* watting_lstate; void* watting_ud[n_ud]
 

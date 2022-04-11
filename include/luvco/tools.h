@@ -35,11 +35,18 @@ luvco_lstate* luvco_get_lstate (lua_State* L);
 void luvco_yield (lua_State *L, lua_KContext k_ctx, lua_KFunction k);
 void luvco_toresume (luvco_lstate* lstate, lua_State *L, int nargs);
 
-// return 1 if all coro end
-// return 0 mean normal yield
-// return -1 if error happen
-int luvco_resume (lua_State_flag* L2);
+typedef void (*luvco_after_yield_f) (void*);
+void luvco_yield_thread (lua_State *L, lua_KContext k_ctx, lua_KFunction k, luvco_after_yield_f f, void* ud);
 
+enum luvco_resume_return {
+    LUVCO_RESUME_NORMAL = 0,
+    LUVCO_RESUME_LSTATE_END,
+    LUVCO_RESUME_YIELD_THREAD,
+    LUVCO_RESUME_ERROR,
+};
+
+// must run after f if it is not NULL
+enum luvco_resume_return luvco_resume (lua_State_flag* L2);
 
 
 typedef atomic_flag luvco_spinlock;

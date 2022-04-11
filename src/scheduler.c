@@ -34,18 +34,26 @@ static void scheduler_thread_cb (void* arg) {
         }
 
         int resumeret = 0;
-        while ((ret = luvco_ringbuf2_pop(lstate->toresume, (void**)&L)) == 0) {
+        while (luvco_ringbuf2_pop(lstate->toresume, (void**)&L) == 0) {
             log_trace("Thread %p resume L:%p", arg, L);
             resumeret = luvco_resume(L);
-
-            // if all coro end, lua_State has been close, pop from lstate will crash
-            if (resumeret == 1) break;
+            if (resumeret != LUVCO_RESUME_NORMAL) break;
         }
 
-        if (resumeret == 1) {
-            log_trace("all coro end lstate:%p, remove from process worklist", lstate);
-        } else {
+        switch (resumeret) {
+        case LUVCO_RESUME_NORMAL:
             luvco_ringbuf2_spinpush(worklist, lstate);
+            break;
+        case LUVCO_RESUME_ERROR:
+            log_error("some error happen when resume L:%p", L);
+            break;
+        case LUVCO_RESUME_LSTATE_END:
+            log_trace("all coro end lstate:%p, remove from process worklist", lstate);
+            break;
+        case LUVCO_RESUME_YIELD_THREAD:
+            log_trace("yield thread");
+        default:
+            assert(0 && "Unexpected resume return value");
         }
     }
 }

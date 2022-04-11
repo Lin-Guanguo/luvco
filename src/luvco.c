@@ -108,6 +108,17 @@ void luvco_yield (lua_State *L, lua_KContext k_ctx, lua_KFunction k) {
     lua_yieldk(L, 0, k_ctx, k);
 }
 
+enum luvco_special_yield_tag {
+    LUVCO_YIELD_THREAD = 1086,
+};
+
+void luvco_yield_thread (lua_State *L, lua_KContext k_ctx, lua_KFunction k, luvco_after_yield_f f, void* ud) {
+    lua_pushlightuserdata(L, f);
+    lua_pushlightuserdata(L, ud);
+    lua_pushlightuserdata(L, (void*)LUVCO_YIELD_THREAD);
+    lua_yieldk(L, 3, k_ctx, k);
+}
+
 void luvco_toresume (luvco_lstate* lstate, lua_State* L, int nargs) {
     assert(nargs >= 0 && nargs <= 3 && "args should between 0 and 3");
     assert(((intptr_t)L & 3) == 0 && "lua state not align, can't use low bit as flag");
@@ -116,23 +127,40 @@ void luvco_toresume (luvco_lstate* lstate, lua_State* L, int nargs) {
     luvco_ringbuf2_spinpush(lstate->toresume, L);
 }
 
-int luvco_resume (lua_State_flag* Lb) {
+enum luvco_resume_return luvco_resume (lua_State_flag* Lb) {
     int nargs = (intptr_t)Lb & 3;
     lua_State* L = (lua_State*)((intptr_t)Lb & (~3));
 
     int res;
     int ret = lua_resume(L, NULL, nargs, &res);
-    if (res != 0) {
+    luvco_after_yield_f afterf;
+    if (ret == LUA_YIELD && res != 0) {
+        intptr_t tag = (intptr_t)lua_touserdata(L, -1);
+        switch (tag) {
+        case LUVCO_YIELD_THREAD:
+            afterf = lua_touserdata(L, 1);
+            if (afterf != NULL) {
+                void* afterf_ud = lua_touserdata(L, 2);
+                afterf(afterf_ud);
+            }
+            return LUVCO_RESUME_YIELD_THREAD;
+        default:
+            goto res_error;
+        }
+    } else if (res != 0) {
+        res_error:
         log_error("unexpected lua resume return");
         luvco_dump_lua_stack(L);
+        return LUVCO_RESUME_ERROR;
     }
+
     switch (ret) {
     case LUA_YIELD:
-        return 0;
+        return LUVCO_RESUME_NORMAL;
     case LUA_OK:
         ret = unregister_coro(L);
         if (ret != 1) {
-            return 0;
+            return LUVCO_RESUME_NORMAL;
         }
         int ty = lua_getfield(L, LUA_REGISTRYINDEX, MAINSTATE_TAG_FILED);
         lua_pop(L, 1);
@@ -145,11 +173,11 @@ int luvco_resume (lua_State_flag* Lb) {
             // main lua_State not close, just gc collect object
             lua_gc(L, LUA_GCCOLLECT);
         }
-        return 1;
+        return LUVCO_RESUME_LSTATE_END;
     default:
         log_error("luvco resume error");
         luvco_dump_lua_stack(L);
-        return -1;
+        return LUVCO_RESUME_ERROR;
     }
     assert(false && "error");
 }

@@ -87,8 +87,9 @@ enum chan1_watting_state {
 };
 
 typedef struct chan1 {
+    atomic_char ref_count;
     luvco_spinlock mu;
-    int waiting_state;
+    char waiting_state;
     lua_State* Lto;
     lua_State* Lfrom;
     luvco_lstate* Lto_lstate;
@@ -181,6 +182,7 @@ static int lua_chan1_send_k (lua_State *L, int status, lua_KContext ctx) {
         lua_rotate(ch->Lto, -2, 1);
     }
     luvco_scheduler_addwork(scheduler, ch->Lto_lstate);
+    ch->waiting_state = CHAN1_WAITING_EMPTY;
     return 1;
 }
 
@@ -204,6 +206,7 @@ static int lua_chan1_recv_k (lua_State *L, int status, lua_KContext ctx) {
         lua_rotate(ch->Lto, -2, 1);
     }
     luvco_scheduler_addwork(scheduler, ch->Lfrom_lstate);
+    ch->waiting_state = CHAN1_WAITING_EMPTY;
     return 2;
 }
 
@@ -273,6 +276,25 @@ static int lua_chan1_recv (lua_State* L) {
     assert(0 && "Never reach brach");
 }
 
+static int lua_chan1_sender_gc (lua_State* l) {
+    chan1_sender* sender = luvco_check_udata(l, 1, chan1_sender);
+    int oldcount = atomic_fetch_sub(&sender->ch->ref_count, 1);
+    if (oldcount == 1) {
+        free(sender->ch);
+    }
+    return 0;
+    // TODO: if recv are watting, return nil
+}
+
+static int lua_chan1_recver_gc (lua_State* l) {
+    chan1_recver* recver = luvco_check_udata(l, 1, chan1_recver);
+    int oldcount = atomic_fetch_sub(&recver->ch->ref_count, 1);
+    if (oldcount == 1) {
+        free(recver->ch);
+    }
+    return 0;
+}
+
 static const luaL_Reg sender_m [] = {
     { "send", lua_chan1_send },
     { NULL, NULL}
@@ -283,12 +305,21 @@ static const luaL_Reg recver_m [] = {
     { NULL, NULL}
 };
 
-static int open_chan1 (lua_State* L) {
+void luvco_chan1_cross_state (lua_State *Lsend, lua_State *Lrecv) {
+    chan1* ch = (chan1*)malloc(sizeof(chan1));
+    atomic_store(&ch->ref_count, 2);
+    luvco_spinlock_init(&ch->mu);
+    ch->waiting_state = CHAN1_WAITING_EMPTY;
+    chan1_sender* sender = luvco_pushudata_with_meta(Lsend, chan1_sender);
+    chan1_recver* recver = luvco_pushudata_with_meta(Lrecv, chan1_recver);
+    sender->ch = ch;
+    recver->ch = ch;
+}
+
+int luvco_open_chan (lua_State* L) {
     luvco_new_meta(L, chan1_sender);
     luaL_setfuncs(L, sender_m, 0);
     luvco_new_meta(L, chan1_recver);
     luaL_setfuncs(L, recver_m, 0);
 }
-
-
 

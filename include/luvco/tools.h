@@ -75,3 +75,4 @@ int luvco_ringbuf2_unlockpop (luvco_ringbuf2* r, void** data);
 int luvco_ringbuf2_delete (luvco_ringbuf2* r);
 
 
+void luvco_chan1_cross_state (lua_State *Lsend, lua_State *Lrecv);

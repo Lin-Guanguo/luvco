@@ -51,8 +51,6 @@ static enum luvco_move_return move_udata(lua_State *from, lua_State *to) {
 // pop top of `from` , move it to `to`,
 // if some error happen, push nil to `to`
 static enum luvco_move_return move_cross_lua(lua_State *from, lua_State *to) {
-    // TODO: check data type
-    // move primary type and udata which __name begin with luvco.
     int ty = lua_type(from, -1);
     size_t len;
     const char* s;
@@ -167,7 +165,7 @@ static int lua_chan1_send_k (lua_State *L, int status, lua_KContext ctx) {
         return 1;
     }
     chan1* ch = (chan1*)ctx;
-    log_trace("chan1:%p start in send_k of L:%p", ch, L);
+    log_trace("chan1:%p step3, start in send_k of L:%p", ch, L);
     luvco_gstate* gstate = luvco_get_gstate(L);
     luvco_scheduler* scheduler = gstate->scheduler;
     assert(ch->Lfrom == L);
@@ -191,7 +189,7 @@ static int lua_chan1_recv_k (lua_State *L, int status, lua_KContext ctx) {
         return 2;
     }
     chan1* ch = (chan1*)ctx;
-    log_trace("chan1:%p start in recv_k of L:%p", ch, L);
+    log_trace("chan1:%p step3, start in recv_k of L:%p", ch, L);
     luvco_gstate* gstate = luvco_get_gstate(L);
     luvco_scheduler* scheduler = gstate->scheduler;
     assert(ch->Lto == L);
@@ -213,7 +211,7 @@ static int lua_chan1_recv_k (lua_State *L, int status, lua_KContext ctx) {
 static void lua_chan1_send_after_yield (void* ud) {
     chan1* ch = (chan1*)ud;
     luvco_toresume(ch->Lto_lstate, ch->Lto, 0);
-    // when resume will run lua_chan1_recv_k
+    // toresume, then will run lua_chan1_recv_k
 }
 
 // return a boolean
@@ -226,7 +224,7 @@ static int lua_chan1_send (lua_State* L) {
     int ret = chan1_trysend(L, lstate, ch);
     switch (ret) {
     case CHAN1_TRY_YIELD:
-        log_trace("chan1:%p send, yield in L:%p", ch, L);
+        log_trace("chan1:%p step1, send, yield in L:%p", ch, L);
         // resume by lua_chan1_recv_after_yield
         luvco_yield(L, (lua_KContext)ch, lua_chan1_send_k);
         break;
@@ -234,7 +232,7 @@ static int lua_chan1_send (lua_State* L) {
         lua_pushboolean(L, false);
         return 1;
     case CHAN1_TRY_START:
-        log_trace("chan1:%p send start, yield thread L:%p", ch, L);
+        log_trace("chan1:%p step2, send start, yield thread L:%p", ch, L);
         luvco_toresume(lstate, L, 0);
         luvco_yield_thread(L, (lua_KContext)NULL, lua_chan1_send_k, lua_chan1_send_after_yield, (void*)ch);
         // then thread will yield, start run by lua_chan1_recv_k
@@ -247,7 +245,7 @@ static int lua_chan1_send (lua_State* L) {
 static void lua_chan1_recv_after_yield (void* ud) {
     chan1* ch = (chan1*)ud;
     luvco_toresume(ch->Lfrom_lstate, ch->Lfrom, 0);
-    // when resume will run lua_chan1_send_k
+    // toresume, then will run lua_chan1_send_k
 }
 
 // return a boolean an a value
@@ -258,7 +256,7 @@ static int lua_chan1_recv (lua_State* L) {
     int ret = chan1_tryrecv(L, lstate, ch);
     switch (ret) {
     case CHAN1_TRY_YIELD:
-        log_trace("chan1:%p recv, yield in L:%p", ch, L);
+        log_trace("chan1:%p step1, recv, yield in L:%p", ch, L);
         // resume by lua_chan1_send_after_yield
         luvco_yield(L, (lua_KContext)ch, lua_chan1_recv_k);
         break;
@@ -266,7 +264,7 @@ static int lua_chan1_recv (lua_State* L) {
         lua_pushboolean(L, false);
         return 1;
     case CHAN1_TRY_START:
-        log_trace("chan1:%p recv start, yield thread L:%p", ch, L);
+        log_trace("chan1:%p step2, recv start, yield thread L:%p", ch, L);
         luvco_toresume(lstate, L, 0);
         luvco_yield_thread(L, (lua_KContext)NULL, lua_chan1_recv_k, lua_chan1_recv_after_yield, (void*)ch);
         // then thread will yield, start run by lua_chan1_send_k

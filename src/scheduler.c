@@ -51,7 +51,8 @@ static void scheduler_thread_cb (void* arg) {
             log_trace("all coro end lstate:%p, remove from process worklist", lstate);
             break;
         case LUVCO_RESUME_YIELD_THREAD:
-            log_trace("yield thread");
+            log_trace("yield thread L:%p, lstate:%p", L, lstate);
+            break;
         default:
             assert(0 && "Unexpected resume return value");
         }

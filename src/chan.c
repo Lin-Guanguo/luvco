@@ -133,7 +133,7 @@ static enum chan1_try_return chan1_tryrecv (lua_State *L, luvco_lstate* lstate, 
     int ret = 0;
     switch (ch->waiting_state) {
     case CHAN1_WAITING_EMPTY:
-        ch->waiting_state = CHAN1_WAITING_TO_SEND;
+        ch->waiting_state = CHAN1_WAITING_TO_RECV;
         ch->Lto = L;
         ch->Lto_lstate = lstate;
         ret = CHAN1_TRY_YIELD;
@@ -170,7 +170,7 @@ static int lua_chan1_send_k (lua_State *L, int status, lua_KContext ctx) {
     log_trace("chan1:%p start in send_k of L:%p", ch, L);
     luvco_gstate* gstate = luvco_get_gstate(L);
     luvco_scheduler* scheduler = gstate->scheduler;
-    assert(ch->Lto == L);
+    assert(ch->Lfrom == L);
     int moveret = move_cross_lua(ch->Lfrom, ch->Lto);
     if (moveret == LUVCO_MOVE_OK) {
         lua_pushboolean(ch->Lfrom, true);
@@ -241,7 +241,7 @@ static int lua_chan1_send (lua_State* L) {
     default:
         assert(0 && "Unexpected chan1 return");
     }
-    assert(0 && "Never reach brach");
+    assert(0 && "Never reach branch");
 }
 
 static void lua_chan1_recv_after_yield (void* ud) {
@@ -321,5 +321,9 @@ int luvco_open_chan (lua_State* L) {
     luaL_setfuncs(L, sender_m, 0);
     luvco_new_meta(L, chan1_recver);
     luaL_setfuncs(L, recver_m, 0);
+    luvco_open_chan_withbase(L);
+
+    lua_newtable(L);
+    return 1;
 }
 

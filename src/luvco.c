@@ -116,7 +116,7 @@ void luvco_yield_thread (lua_State *L, lua_KContext k_ctx, lua_KFunction k, luvc
     lua_pushlightuserdata(L, f);
     lua_pushlightuserdata(L, ud);
     lua_pushlightuserdata(L, (void*)LUVCO_YIELD_THREAD);
-    lua_yieldk(L, 3, k_ctx, k);
+    lua_yieldk(L, 0, k_ctx, k);
 }
 
 void luvco_toresume (luvco_lstate* lstate, lua_State* L, int nargs) {
@@ -133,29 +133,29 @@ enum luvco_resume_return luvco_resume (lua_State_flag* Lb) {
 
     int res;
     int ret = lua_resume(L, NULL, nargs, &res);
-    luvco_after_yield_f afterf;
-    if (ret == LUA_YIELD && res != 0) {
-        intptr_t tag = (intptr_t)lua_touserdata(L, -1);
-        switch (tag) {
-        case LUVCO_YIELD_THREAD:
-            afterf = lua_touserdata(L, 1);
-            if (afterf != NULL) {
-                void* afterf_ud = lua_touserdata(L, 2);
-                afterf(afterf_ud);
-            }
-            return LUVCO_RESUME_YIELD_THREAD;
-        default:
-            goto res_error;
-        }
-    } else if (res != 0) {
-        res_error:
+    if (res != 0) {
         log_error("unexpected lua resume return");
         luvco_dump_lua_stack(L);
         return LUVCO_RESUME_ERROR;
     }
 
+    luvco_after_yield_f afterf;
+    void* afterf_ud;
     switch (ret) {
     case LUA_YIELD:
+        if (lua_gettop(L) >= 1) {
+            intptr_t tag = (intptr_t)lua_touserdata(L, -1);
+            switch (tag) {
+            case LUVCO_YIELD_THREAD:
+                afterf = lua_touserdata(L, -3);
+                afterf_ud= lua_touserdata(L, -2);
+                lua_pop(L, 3);
+                if (afterf != NULL) {
+                    afterf(afterf_ud);
+                }
+                return LUVCO_RESUME_YIELD_THREAD;
+            }
+        }
         return LUVCO_RESUME_NORMAL;
     case LUA_OK:
         ret = unregister_coro(L);
@@ -203,34 +203,70 @@ static int spawn (lua_State* L) {
 }
 
 static int ispawn_k (lua_State *L, int status, lua_KContext ctx) {
-    return 0;
+    return (int)(intptr_t)ctx;
 }
 
-static int ispawn (lua_State *L) {
-    size_t str_len;
-    const char* code = luaL_checklstring(L, 1, &str_len);
+#define ispawn_base_code \
+    size_t str_len; \
+    const char* code = luaL_checklstring(L, 1, &str_len); \
+    luvco_gstate* state = luvco_get_gstate(L); \
+    lua_State* NL = (state->newluaf)(state->newluaf_ud); \
+    luaL_loadbuffer(NL, code, str_len, "ispawn_NL_code"); \
+    luvco_init_luastate(NL, state); \
+    luvco_lstate* lstate = luvco_get_lstate(L); \
+    luvco_lstate* nlstate = luvco_get_lstate(NL); \
+    log_trace("ispawn from L:%p, lstate:%p, NL:%p, nlstate:%p", L, lstate, NL, nlstate);
 
-    luvco_gstate* state = luvco_get_gstate(L);
-    lua_State* NL = (state->newluaf)(state->newluaf_ud);
-
-    luaL_loadbuffer(NL, code, str_len, "NL");
-    luvco_init_luastate(NL, state);
-    luvco_lstate* lstate = luvco_get_lstate(L);
-    luvco_lstate* nlstate = luvco_get_lstate(NL);
-    log_trace("ispawn from lstate:%p, nlstate:%p", lstate, nlstate);
-
+static int ispawn (lua_State* L) {
+    ispawn_base_code
     luvco_toresume(lstate, L, 0);
     luvco_toresume(nlstate, NL, 0);
     luvco_scheduler_addwork(state->scheduler, nlstate);
-    luvco_yield(L, (lua_KContext)NULL, ispawn_k);
+    luvco_yield(L, (lua_KContext)0, ispawn_k);
 }
 
-static void tmp_yield_cb (uv_idle_t* handle) {
+static int ispawn_r (lua_State* L) {
+    ispawn_base_code
+    luaL_requiref(NL, "luvco_chan", luvco_open_chan, 0);
+    lua_pop(NL, 1);
 
+    luvco_chan1_cross_state(NL, L);
+    lua_setglobal(NL, "send_parent");
+
+    luvco_toresume(lstate, L, 1);
+    luvco_toresume(nlstate, NL, 0);
+    luvco_scheduler_addwork(state->scheduler, nlstate);
+    luvco_yield(L, (lua_KContext)1, ispawn_k);
 }
 
-static int tmp_yield (lua_State *L) {
-    return 0;
+static int ispawn_s (lua_State* L) {
+    ispawn_base_code
+    luaL_requiref(NL, "luvco_chan", luvco_open_chan, 0);
+    lua_pop(NL, 1);
+
+    luvco_chan1_cross_state(L, NL);
+    lua_setglobal(NL, "recv_parent");
+
+    luvco_toresume(lstate, L, 1);
+    luvco_toresume(nlstate, NL, 0);
+    luvco_scheduler_addwork(state->scheduler, nlstate);
+    luvco_yield(L, (lua_KContext)1, ispawn_k);
+}
+
+static int ispawn_rs (lua_State* L) {
+    ispawn_base_code
+    luaL_requiref(NL, "luvco_chan", luvco_open_chan, 0);
+    lua_pop(NL, 1);
+
+    luvco_chan1_cross_state(NL, L);
+    lua_setglobal(NL, "send_parent");
+    luvco_chan1_cross_state(L, NL);
+    lua_setglobal(NL, "recv_parent");
+
+    luvco_toresume(lstate, L, 2);
+    luvco_toresume(nlstate, NL, 0);
+    luvco_scheduler_addwork(state->scheduler, nlstate);
+    luvco_yield(L, (lua_KContext)2, ispawn_k);
 }
 
 static int import_lib (lua_State *L) {
@@ -240,6 +276,8 @@ static int import_lib (lua_State *L) {
         return 0;
     } else if (strcmp(s, "net") == 0) {
         luaL_requiref(L, "luvco_net", luvco_open_net, 0);
+    } else if (strcmp(s, "chan") == 0) {
+        luaL_requiref(L, "luvco_chan", luvco_open_chan, 0);
     }
     return 1;
 }
@@ -251,9 +289,24 @@ static const luaL_Reg base_lib [] = {
     { NULL, NULL }
 };
 
+static const luaL_Reg base_add_chan_lib [] = {
+    { "ispawn_r", ispawn_r },
+    { "ispawn_s", ispawn_s },
+    { "ispawn_rs", ispawn_rs },
+    { NULL, NULL }
+};
+
 int luvco_open_base (lua_State* L) {
     luaL_newlib(L, base_lib);
     return 1;
+}
+
+void luvco_open_chan_withbase (lua_State* L) {
+    int ty = lua_getglobal(L, "luvco");
+    if (ty == LUA_TTABLE) {
+        luaL_setfuncs(L, base_add_chan_lib, 0);
+    }
+    lua_pop(L, 1);
 }
 
 static lua_State* default_newluaf (void* ud) {

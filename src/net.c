@@ -58,11 +58,11 @@ typedef struct tcp_connection {
 
 static void server_accept_cb (uv_stream_t* tcp, int status) {
     tcp_server* server = container_of(tcp, tcp_server, tcp);
-    log_trace("server %p accept cb called, waiting_lstate=%p", server, server->watting_lstate);
-    if (server->watting_L != NULL) {
-        lua_State* L = server->watting_L;
-        luvco_lstate* lstate = server->watting_lstate;
-        tcp_connection* con = (tcp_connection*)server->watting_ud[0];
+    log_trace("server %p accept cb called, waiting_lstate=%p", server, server->waiting_lstate);
+    if (server->waiting_L != NULL) {
+        lua_State* L = server->waiting_L;
+        luvco_lstate* lstate = server->waiting_lstate;
+        tcp_connection* con = (tcp_connection*)server->waiting_ud[0];
         luvco_cbdata_clear(server);
 
         int ret = uv_accept((uv_stream_t*)&server->tcp, (uv_stream_t*)&con->tcp);
@@ -96,7 +96,7 @@ static int server_accept_k (lua_State *L, int status, lua_KContext ctx) {
 }
 
 // return connetion when succeed
-// return nil if server already closed or close when watting accept
+// return nil if server already closed or close when waiting accept
 static int server_accept (lua_State* L) {
     tcp_server* server = luvco_check_udata(L, 1, tcp_server);
     luvco_gstate* state = luvco_get_gstate(L);
@@ -142,9 +142,9 @@ static int server_close (lua_State* L) {
         log_trace("server %p closed", server);
 
         // close when accept directly return
-        if (server->watting_L != NULL) {
+        if (server->waiting_L != NULL) {
             lua_settop(L, 0);
-            lua_pushnil(server->watting_L);
+            lua_pushnil(server->waiting_L);
             luvco_toresume_incb(server, 1);
         }
 
@@ -176,15 +176,15 @@ static void connection_read_cb (uv_stream_t* stream, ssize_t nread, const uv_buf
     tcp_connection* con = container_of(stream, tcp_connection, tcp);
     // log_trace("connection read cb called %p", con);
 
-    con->watting_ud[0] = (void*)nread;
-    con->watting_ud[1] = (void*)buf;
+    con->waiting_ud[0] = (void*)nread;
+    con->waiting_ud[1] = (void*)buf;
     luvco_toresume_incb(con, 0);
 }
 
 static int connection_read_k (lua_State *L, int status, lua_KContext ctx) {
     tcp_connection* con = (tcp_connection*)ctx;
-    ssize_t nread = (ssize_t)con->watting_ud[0];
-    uv_buf_t* buf = (uv_buf_t*)con->watting_ud[1];
+    ssize_t nread = (ssize_t)con->waiting_ud[0];
+    uv_buf_t* buf = (uv_buf_t*)con->waiting_ud[1];
     if (nread > 0) {
         lua_pushlstring(L, buf->base, nread);
     } else if (nread == UV_EOF) {
@@ -213,13 +213,13 @@ static int connection_read (lua_State* L) {
 
 static void connection_write_cb (uv_write_t* req, int status) {
     tcp_connection* con = container_of(req->handle, tcp_connection, tcp);
-    con->watting_ud[0] = (void*)(intptr_t)status;
+    con->waiting_ud[0] = (void*)(intptr_t)status;
     luvco_toresume_incb(con, 0);
 }
 
 static int connection_write_k (lua_State *L, int status, lua_KContext ctx) {
     tcp_connection* con = (tcp_connection*)ctx;
-    int write_status = (int)(intptr_t)con->watting_ud[0];
+    int write_status = (int)(intptr_t)con->waiting_ud[0];
     if (write_status != 0) {
         log_error("connection %p write error, status %d", con, status);
     }

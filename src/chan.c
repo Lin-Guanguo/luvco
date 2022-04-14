@@ -78,7 +78,7 @@ static enum luvco_move_return move_cross_lua(lua_State *from, lua_State *to) {
     }
 }
 
-enum chan1_watting_state {
+enum chan1_waiting_state {
     CHAN1_WAITING_EMPTY,
     CHAN1_WAITING_TO_SEND,
     CHAN1_WAITING_TO_RECV,
@@ -281,7 +281,7 @@ static int lua_chan1_sender_gc (lua_State* l) {
         free(sender->ch);
     }
     return 0;
-    // TODO: if recv are watting, return nil
+    // TODO: if recv are waiting, return nil
 }
 
 static int lua_chan1_recver_gc (lua_State* l) {

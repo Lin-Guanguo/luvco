@@ -168,6 +168,8 @@ enum luvco_resume_return luvco_resume (lua_State_flag* Lb) {
             luvco_lstate* lstate = luvco_get_lstate(L);
             local_state_delete(lstate);
             lua_close(L);
+        } else {
+            lua_gc(L, LUA_GCCOLLECT);
         }
         return LUVCO_RESUME_LSTATE_END;
     default:
@@ -363,7 +365,7 @@ void luvco_run (luvco_gstate* state) {
     uv_idle_init(&state->loop, &deamon.idle);
     uv_idle_start(&deamon.idle, luvco_deamon);
     uv_run(&state->loop, UV_RUN_DEFAULT);
-    uv_close(&deamon.idle, deamon_close_cb);
+    uv_close((uv_handle_t*)&deamon.idle, deamon_close_cb);
 
     log_trace("luvco end, global state:%p", state);
 }

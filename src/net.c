@@ -37,17 +37,15 @@ static int new_ip6_addr (lua_State* L) {
 }
 
 typedef struct tcp_server {
-    bool closed;
-
     uv_tcp_t tcp;
+    bool closed;
 
     luvco_cbdata(1);
 } tcp_server;
 
 typedef struct tcp_connection {
-    bool closed;
-
     uv_tcp_t tcp;
+    bool closed;
 
     char* read_buf; // read buf, alloc in first read, free in gc
 
@@ -61,7 +59,7 @@ typedef struct tcp_connection {
 static void server_accept_cb (uv_stream_t* tcp, int status) {
     tcp_server* server = container_of(tcp, tcp_server, tcp);
     log_trace("server %p accept cb called, waiting_lstate=%p", server, server->watting_lstate);
-    if (server->watting_lstate != NULL) {
+    if (server->watting_L != NULL) {
         lua_State* L = server->watting_L;
         luvco_lstate* lstate = server->watting_lstate;
         tcp_connection* con = (tcp_connection*)server->watting_ud[0];
@@ -110,7 +108,7 @@ static int server_accept (lua_State* L) {
     }
 
     tcp_connection* client = luvco_pushudata_with_meta(L, tcp_connection);
-    client->closed = true;
+    client->closed = false;
     client->read_buf = NULL;
     client->write_req = NULL;
     client->write_bufs = NULL;
@@ -128,8 +126,13 @@ static int server_accept (lua_State* L) {
     return 1;
 }
 
+static int server_close_k (lua_State *L, int status, lua_KContext ctx) {
+    return 0;
+}
+
 static void server_close_cb (uv_handle_t* handle) {
-    /* do nothing, memory in handled by lua vm */
+    tcp_server* server = container_of(handle, tcp_server, tcp);
+    luvco_toresume_incb(server, 0);
 }
 
 static int server_close (lua_State* L) {
@@ -137,7 +140,6 @@ static int server_close (lua_State* L) {
     if (!server->closed) {
         server->closed = true;
         log_trace("server %p closed", server);
-        uv_close((uv_handle_t*)&server->tcp, server_close_cb);
 
         // close when accept directly return
         if (server->watting_L != NULL) {
@@ -145,6 +147,10 @@ static int server_close (lua_State* L) {
             lua_pushnil(server->watting_L);
             luvco_toresume_incb(server, 1);
         }
+
+        luvco_cbdata_set(server, L);
+        uv_close((uv_handle_t*)&server->tcp, server_close_cb);
+        luvco_yield(L, (lua_KContext)NULL, server_close_k);
     }
     return 0;
 }

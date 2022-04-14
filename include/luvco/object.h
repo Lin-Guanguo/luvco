@@ -1,7 +1,7 @@
 #pragma once
 
 extern const char* LUVCO_UDATAMETA_SIZEOF_FIELD;
-extern const char* LUVCO_UDATAMETA_MOVEABLE_FIELD;
+extern const char* LUVCO_UDATAMETA_MOVEF_FIELD;
 
 #define luvco_new_meta(L, type) \
     luaL_newmetatable((L), "luvco."#type); \
@@ -10,14 +10,14 @@ extern const char* LUVCO_UDATAMETA_MOVEABLE_FIELD;
     lua_pushinteger((L), sizeof(type)); \
     lua_setfield(L, -2, LUVCO_UDATAMETA_SIZEOF_FIELD)
 
-#define luvco_new_meta_moveable(L, type) \
+#define luvco_new_meta_moveable(L, type, move_f) \
     luaL_newmetatable((L), "luvco."#type); \
     lua_pushvalue((L), -1); \
     lua_setfield((L), -2, "__index"); \
     lua_pushinteger((L), sizeof(type)); \
     lua_setfield(L, -2, LUVCO_UDATAMETA_SIZEOF_FIELD) \
-    lua_pushboolean((L), true) \
-    lua_setfield(L, -2, LUVCO_UDATAMETA_MOVEABLE_FIELD)
+    lua_pushlightuserdata((L), move_f) \
+    lua_setfield(L, -2, LUVCO_UDATAMETA_MOVEF_FIELD)
 
 #define luvco_pushudata_with_meta(L, type) \
     (type*)lua_newuserdatauv((L), sizeof(type), 0); \
@@ -53,16 +53,4 @@ extern const char* LUVCO_UDATAMETA_MOVEABLE_FIELD;
 #define luvco_toresume_incb(obj, nargs) \
     luvco_toresume((obj)->waiting_lstate, (obj)->waiting_L, (nargs))
 
-
-
-typedef struct luvco_objhead_moveable {
-    bool moved;
-} luvco_objhead_moveable;
-
-#define luvco_init_objhead(head) (head)->moved = false;
-
-#define luvco_checkmoved(L, head) \
-    if (((luvco_objhead_moveable*)(head))->moved) { \
-        log_error("luvco obj %p is moved, can't use", (head)); \
-        luaL_error(L, "luvco obj %p is moved, can't use", (head)); \
-    }
+typedef void (*luvco_moveobj_f) (void* from, void* to);

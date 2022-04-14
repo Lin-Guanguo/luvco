@@ -12,44 +12,53 @@ enum luvco_move_return {
     LUVCO_MOVE_UDATA_TO_UNIMPORT_STATE,
 };
 
+// call movef, move top of `from` to `to`, not pop
 static enum luvco_move_return move_udata(lua_State *from, lua_State *to) {
     log_trace("move obj from L:%p to L:%p", from, to);
-    luvco_objhead_moveable* data = lua_touserdata(from, -1);
+    void* data = lua_touserdata(from, -1);
     assert(data != NULL);
-    lua_getmetatable(from, -1);
-    lua_getfield(from, -1, LUVCO_UDATAMETA_MOVEABLE_FIELD);
-    bool ismoveable = lua_toboolean(from, -1);
-    if (!ismoveable) {
-        log_warn("attemp to move value without filed %s", LUVCO_UDATAMETA_MOVEABLE_FIELD);
-        lua_pushnil(to);
-        lua_pop(from, 2);
+    int ret = lua_getmetatable(from, -1);
+    if (ret == 0) { // no metatable
         return LUVCO_MOVE_NONMOVEABLE_UDATA;
     }
-    lua_getfield(from, -2, "__name");
+    int ty = lua_getfield(from, -1, LUVCO_UDATAMETA_MOVEF_FIELD);
+    luvco_moveobj_f movef = (luvco_moveobj_f)lua_touserdata(from, -1);
+    if (ty != LUA_TLIGHTUSERDATA || movef == NULL) {
+        log_warn("attemp to move value without filed %s", LUVCO_UDATAMETA_MOVEF_FIELD);
+        lua_pushnil(to);
+        lua_pop(from, 2); // metatable, __movef
+        return LUVCO_MOVE_NONMOVEABLE_UDATA;
+    }
+
+    ty = lua_getfield(from, -2, "__name");
+    assert(ty == LUA_TSTRING);
     const char* datatype = lua_tostring(from, -1);
+
     lua_getfield(from, -3, LUVCO_UDATAMETA_SIZEOF_FIELD);
+    assert(ty == LUA_TNUMBER);
     int datasize = lua_tointeger(from, -1);
 
-    int ty = luaL_getmetatable(to, datatype);
+    ty = luaL_getmetatable(to, datatype);
     if (ty == LUA_TNIL) {
         log_warn("chan receiver hanven't import corresponding package");
-        lua_pop(to, 1);
+        lua_pop(to, 1); // pop metatable
         lua_pushnil(to);
         lua_pop(from, 4);
         return LUVCO_MOVE_UDATA_TO_UNIMPORT_STATE;
     }
-    luvco_objhead_moveable* newdata = lua_newuserdatauv(to, datasize, 0);
+    void* newdata = lua_newuserdatauv(to, datasize, 0);
     lua_rotate(to, -2, 1);
     lua_setmetatable(to, -2);
-    memcpy(newdata, data, datasize);
-    // TODO: set data moved
+    movef(data, newdata);
 
-    lua_pop(from, 4); // metatable, __moveable, __name, __sizeof
+    lua_pop(from, 4); // metatable, __movef, __name, __sizeof
     return LUVCO_MOVE_OK;
 }
 
-// pop top of `from` , move it to `to`,
+// move top of 'from' to `to`,
 // if some error happen, push nil to `to`
+//
+// not pop `from`
 static enum luvco_move_return move_cross_lua(lua_State *from, lua_State *to) {
     int ty = lua_type(from, -1);
     size_t len;

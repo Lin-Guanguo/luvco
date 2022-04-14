@@ -24,8 +24,4 @@ make
 
 * Eventloop Graceful quit
 
-* Chan1 send
-
-* waiting data refactor
-
 * closed lua state unregister

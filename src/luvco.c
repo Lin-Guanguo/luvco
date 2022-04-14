@@ -112,7 +112,7 @@ enum luvco_special_yield_tag {
     LUVCO_YIELD_THREAD = 1086,
 };
 
-void luvco_yield_thread (lua_State *L, lua_KContext k_ctx, lua_KFunction k, luvco_after_yield_f f, void* ud) {
+void luvco_yield_thread (lua_State *L, lua_KContext k_ctx, lua_KFunction k, luvco_cb_f f, void* ud) {
     lua_pushlightuserdata(L, f);
     lua_pushlightuserdata(L, ud);
     lua_pushlightuserdata(L, (void*)LUVCO_YIELD_THREAD);
@@ -139,21 +139,20 @@ enum luvco_resume_return luvco_resume (lua_State_flag* Lb) {
         return LUVCO_RESUME_ERROR;
     }
 
-    luvco_after_yield_f afterf;
-    void* afterf_ud;
     switch (ret) {
     case LUA_YIELD:
         if (lua_gettop(L) >= 1) {
             intptr_t tag = (intptr_t)lua_touserdata(L, -1);
             switch (tag) {
-            case LUVCO_YIELD_THREAD:
-                afterf = lua_touserdata(L, -3);
-                afterf_ud= lua_touserdata(L, -2);
+            case LUVCO_YIELD_THREAD:{
+                luvco_cb_f afterf = lua_touserdata(L, -3);
+                void* afterf_ud= lua_touserdata(L, -2);
                 lua_pop(L, 3);
                 if (afterf != NULL) {
                     afterf(afterf_ud);
                 }
                 return LUVCO_RESUME_YIELD_THREAD;
+            } break;
             }
         }
         return LUVCO_RESUME_NORMAL;
@@ -169,9 +168,6 @@ enum luvco_resume_return luvco_resume (lua_State_flag* Lb) {
             luvco_lstate* lstate = luvco_get_lstate(L);
             local_state_delete(lstate);
             lua_close(L);
-        } else {
-            // main lua_State not close, just gc collect object
-            lua_gc(L, LUA_GCCOLLECT);
         }
         return LUVCO_RESUME_LSTATE_END;
     default:

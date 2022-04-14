@@ -35,8 +35,8 @@ luvco_lstate* luvco_get_lstate (lua_State* L);
 void luvco_yield (lua_State *L, lua_KContext k_ctx, lua_KFunction k);
 void luvco_toresume (luvco_lstate* lstate, lua_State *L, int nargs);
 
-typedef void (*luvco_after_yield_f) (void*);
-void luvco_yield_thread (lua_State *L, lua_KContext k_ctx, lua_KFunction k, luvco_after_yield_f f, void* ud);
+typedef void (*luvco_cb_f) (void*);
+void luvco_yield_thread (lua_State *L, lua_KContext k_ctx, lua_KFunction k, luvco_cb_f run_after_yield, void* f_ud);
 
 enum luvco_resume_return {
     LUVCO_RESUME_NORMAL = 0,

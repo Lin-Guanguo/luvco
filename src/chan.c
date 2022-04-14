@@ -34,7 +34,7 @@ static enum luvco_move_return move_udata(lua_State *from, lua_State *to) {
     assert(ty == LUA_TSTRING);
     const char* datatype = lua_tostring(from, -1);
 
-    lua_getfield(from, -3, LUVCO_UDATAMETA_SIZEOF_FIELD);
+    ty = lua_getfield(from, -3, LUVCO_UDATAMETA_SIZEOF_FIELD);
     assert(ty == LUA_TNUMBER);
     int datasize = lua_tointeger(from, -1);
 

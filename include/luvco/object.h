@@ -6,17 +6,15 @@ extern const char* LUVCO_UDATAMETA_MOVEF_FIELD;
 #define luvco_new_meta(L, type) \
     luaL_newmetatable((L), "luvco."#type); \
     lua_pushvalue((L), -1); \
-    lua_setfield((L), -2, "__index"); \
-    lua_pushinteger((L), sizeof(type)); \
-    lua_setfield(L, -2, LUVCO_UDATAMETA_SIZEOF_FIELD)
+    lua_setfield((L), -2, "__index")
 
 #define luvco_new_meta_moveable(L, type, move_f) \
     luaL_newmetatable((L), "luvco."#type); \
     lua_pushvalue((L), -1); \
     lua_setfield((L), -2, "__index"); \
     lua_pushinteger((L), sizeof(type)); \
-    lua_setfield(L, -2, LUVCO_UDATAMETA_SIZEOF_FIELD) \
-    lua_pushlightuserdata((L), move_f) \
+    lua_setfield(L, -2, LUVCO_UDATAMETA_SIZEOF_FIELD); \
+    lua_pushlightuserdata((L), move_f); \
     lua_setfield(L, -2, LUVCO_UDATAMETA_MOVEF_FIELD)
 
 #define luvco_pushudata_with_meta(L, type) \

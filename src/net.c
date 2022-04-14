@@ -9,6 +9,7 @@
 
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct ip_addr {
     struct sockaddr_storage addr;
@@ -34,6 +35,10 @@ static int new_ip4_addr (lua_State* L) {
 
 static int new_ip6_addr (lua_State* L) {
     return new_ip_addr(L, 6);
+}
+
+static void ip_addr_move (void* from, void* to) {
+    memcpy(to, from, sizeof(ip_addr));
 }
 
 typedef struct tcp_server {
@@ -311,7 +316,7 @@ static const luaL_Reg con_m [] = {
 };
 
 int luvco_open_net (lua_State* L) {
-    luvco_new_meta(L, ip_addr);
+    luvco_new_meta_moveable(L, ip_addr, ip_addr_move);
     luvco_new_meta(L, tcp_server);
     luaL_setfuncs(L, server_m, 0);
     luvco_new_meta(L, tcp_connection);

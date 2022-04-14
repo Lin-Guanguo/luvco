@@ -179,7 +179,7 @@ static int lua_chan1_send_k (lua_State *L, int status, lua_KContext ctx) {
         lua_pushboolean(ch->Lto, false);
         lua_rotate(ch->Lto, -2, 1);
     }
-    luvco_scheduler_addwork(scheduler, ch->Lto_lstate);
+    luvco_scheduler_resumework(scheduler, ch->Lto_lstate);
     ch->waiting_state = CHAN1_WAITING_EMPTY;
     return 1;
 }
@@ -203,7 +203,7 @@ static int lua_chan1_recv_k (lua_State *L, int status, lua_KContext ctx) {
         lua_pushboolean(ch->Lto, false);
         lua_rotate(ch->Lto, -2, 1);
     }
-    luvco_scheduler_addwork(scheduler, ch->Lfrom_lstate);
+    luvco_scheduler_resumework(scheduler, ch->Lfrom_lstate);
     ch->waiting_state = CHAN1_WAITING_EMPTY;
     return 2;
 }

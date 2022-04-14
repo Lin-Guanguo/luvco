@@ -331,8 +331,21 @@ luvco_gstate* luvco_init (lua_State* L, luvco_newluaf f, void* f_ud) {
 
 #define NPROCESS 4
 
-static void prevent_quit (uv_idle_t* handle) {
-    // TODO: quit when all lua_State execute over
+typedef struct luvco_deamon_data {
+    uv_idle_t idle;
+    luvco_scheduler* s;
+} luvco_deamon_data;
+
+static void luvco_deamon (uv_idle_t* handle) {
+    luvco_deamon_data* deamon = container_of(handle, luvco_deamon_data, idle);
+    if ( luvco_scheduler_totalwork(deamon->s) == 0 ) {
+        log_debug("deamon: all work end, quit event loop");
+        uv_idle_stop(handle);
+    }
+}
+
+static void deamon_close_cb (uv_handle_t* handle) {
+
 }
 
 void luvco_run (luvco_gstate* state) {
@@ -345,16 +358,28 @@ void luvco_run (luvco_gstate* state) {
     luvco_toresume(lstate, state->main_coro, 0);
     luvco_scheduler_addwork(s, lstate);
 
-    uv_idle_t idle;
-    uv_idle_init(&state->loop, &idle);
-    uv_idle_start(&idle, prevent_quit);
+    luvco_deamon_data deamon;
+    deamon.s = s;
+    uv_idle_init(&state->loop, &deamon.idle);
+    uv_idle_start(&deamon.idle, luvco_deamon);
     uv_run(&state->loop, UV_RUN_DEFAULT);
+    uv_close(&deamon.idle, deamon_close_cb);
 
     log_trace("luvco end, global state:%p", state);
 }
 
+static void print_all_handle (uv_handle_t* h, void* args) {
+    printf("%p\t%d:%s\n", h, h->type, uv_handle_type_name(h->type));
+}
+
 void luvco_close (luvco_gstate* state) {
-    uv_loop_close(&state->loop);
+    int ret = uv_loop_close(&state->loop);
+    if (ret == UV_EBUSY) {
+        uv_walk(&state->loop, print_all_handle, NULL);
+        log_error("uv close return UV_EBUSY");
+    } else {
+        log_debug("uv close");
+    }
 
     // clean main lua state
     lua_State* L = state->main_coro;

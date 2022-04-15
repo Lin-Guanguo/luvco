@@ -19,7 +19,8 @@ int main(int argc, char **argv) {
     luvco_gstate* state = luvco_init(L, NULL, NULL);
     luvco_run(state);
     luvco_close(state);
-    lua_close(state->main_coro);
+    log_debug("+++++++++++++++++luvco close++++++++++++");
 
     printf("main end");
+    lua_close(L);
 }

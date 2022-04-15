@@ -22,6 +22,7 @@ make
 
 ## TODO
 
-* Eventloop Graceful quit
+* scheduler graceful quit
 
-* closed lua state unregister
+* lua_close(main_coro) 的诡异错误
+

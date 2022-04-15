@@ -302,11 +302,13 @@ static int luvco_chan1_recver_gc (lua_State* l) {
 
 static const luaL_Reg sender_m [] = {
     { "send", luvco_chan1_send },
+    { "__gc", luvco_chan1_sender_gc },
     { NULL, NULL}
 };
 
 static const luaL_Reg recver_m [] = {
     { "recv", luvco_chan1_recv },
+    { "__gc", luvco_chan1_recver_gc },
     { NULL, NULL}
 };
 

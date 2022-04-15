@@ -1,16 +1,14 @@
-#include <luvco/tools.h>
+#include <luvco/chan.h>
+
 #include <luvco/object.h>
+#include <luvco/lock.h>
 #include <luvco/scheduler.h>
+
+#include <lua/lua.h>
+#include <lua/lauxlib.h>
 
 #include <assert.h>
 #include <stdlib.h>
-#include <stdatomic.h>
-
-enum luvco_move_return {
-    LUVCO_MOVE_OK,
-    LUVCO_MOVE_NONMOVEABLE_UDATA,
-    LUVCO_MOVE_UDATA_TO_UNIMPORT_STATE,
-};
 
 // call movef, move top of `from` to `to`, not pop
 static enum luvco_move_return move_udata(lua_State *from, lua_State *to) {
@@ -59,7 +57,7 @@ static enum luvco_move_return move_udata(lua_State *from, lua_State *to) {
 // if some error happen, push nil to `to`
 //
 // not pop `from`
-static enum luvco_move_return move_cross_lua(lua_State *from, lua_State *to) {
+enum luvco_move_return luvco_move_cross_lua(lua_State *from, lua_State *to) {
     int ty = lua_type(from, -1);
     size_t len;
     const char* s;
@@ -169,7 +167,7 @@ typedef struct chan1_recver {
     chan1* ch;
 } chan1_recver;
 
-static int lua_chan1_send_k (lua_State *L, int status, lua_KContext ctx) {
+static int luvco_chan1_send_k (lua_State *L, int status, lua_KContext ctx) {
     if ((void*)ctx == NULL) {
         return 1;
     }
@@ -178,7 +176,7 @@ static int lua_chan1_send_k (lua_State *L, int status, lua_KContext ctx) {
     luvco_gstate* gstate = luvco_get_gstate(L);
     luvco_scheduler* scheduler = gstate->scheduler;
     assert(ch->Lfrom == L);
-    int moveret = move_cross_lua(ch->Lfrom, ch->Lto);
+    int moveret = luvco_move_cross_lua(ch->Lfrom, ch->Lto);
     if (moveret == LUVCO_MOVE_OK) {
         lua_pushboolean(ch->Lfrom, true);
         lua_pushboolean(ch->Lto, true);
@@ -193,7 +191,7 @@ static int lua_chan1_send_k (lua_State *L, int status, lua_KContext ctx) {
     return 1;
 }
 
-static int lua_chan1_recv_k (lua_State *L, int status, lua_KContext ctx) {
+static int luvco_chan1_recv_k (lua_State *L, int status, lua_KContext ctx) {
     if ((void*)ctx == NULL) {
         return 2;
     }
@@ -202,7 +200,7 @@ static int lua_chan1_recv_k (lua_State *L, int status, lua_KContext ctx) {
     luvco_gstate* gstate = luvco_get_gstate(L);
     luvco_scheduler* scheduler = gstate->scheduler;
     assert(ch->Lto == L);
-    int moveret = move_cross_lua(ch->Lfrom, ch->Lto);
+    int moveret = luvco_move_cross_lua(ch->Lfrom, ch->Lto);
     if (moveret == LUVCO_MOVE_OK) {
         lua_pushboolean(ch->Lfrom, true);
         lua_pushboolean(ch->Lto, true);
@@ -217,14 +215,14 @@ static int lua_chan1_recv_k (lua_State *L, int status, lua_KContext ctx) {
     return 2;
 }
 
-static void lua_chan1_send_after_yield (void* ud) {
+static void luvco_chan1_send_after_yield (void* ud) {
     chan1* ch = (chan1*)ud;
     luvco_toresume(ch->Lto_lstate, ch->Lto, 0);
-    // toresume, then will run lua_chan1_recv_k
+    // toresume, then will run luvco_chan1_recv_k
 }
 
 // return a boolean
-static int lua_chan1_send (lua_State* L) {
+int luvco_chan1_send (lua_State* L) {
     chan1_sender* sender = luvco_check_udata(L, 1, chan1_sender);
     luaL_checkany(L, 2);
 
@@ -234,8 +232,8 @@ static int lua_chan1_send (lua_State* L) {
     switch (ret) {
     case CHAN1_TRY_YIELD:
         log_trace("chan1:%p step1, send, yield in L:%p", ch, L);
-        // resume by lua_chan1_recv_after_yield
-        luvco_yield(L, (lua_KContext)ch, lua_chan1_send_k);
+        // resume by luvco_chan1_recv_after_yield
+        luvco_yield(L, (lua_KContext)ch, luvco_chan1_send_k);
         break;
     case CHAN1_TRY_ERROR:
         lua_pushboolean(L, false);
@@ -243,22 +241,22 @@ static int lua_chan1_send (lua_State* L) {
     case CHAN1_TRY_START:
         log_trace("chan1:%p step2, send start, yield thread L:%p", ch, L);
         luvco_toresume(lstate, L, 0);
-        luvco_yield_thread(L, (lua_KContext)NULL, lua_chan1_send_k, lua_chan1_send_after_yield, (void*)ch);
-        // then thread will yield, start run by lua_chan1_recv_k
+        luvco_yield_thread(L, (lua_KContext)NULL, luvco_chan1_send_k, luvco_chan1_send_after_yield, (void*)ch);
+        // then thread will yield, start run by luvco_chan1_recv_k
     default:
         assert(0 && "Unexpected chan1 return");
     }
     assert(0 && "Never reach branch");
 }
 
-static void lua_chan1_recv_after_yield (void* ud) {
+static void luvco_chan1_recv_after_yield (void* ud) {
     chan1* ch = (chan1*)ud;
     luvco_toresume(ch->Lfrom_lstate, ch->Lfrom, 0);
-    // toresume, then will run lua_chan1_send_k
+    // toresume, then will run luvco_chan1_send_k
 }
 
 // return a boolean an a value
-static int lua_chan1_recv (lua_State* L) {
+int luvco_chan1_recv (lua_State* L) {
     chan1_recver* recver = luvco_check_udata(L, 1, chan1_recver);
     luvco_lstate* lstate = luvco_get_lstate(L);
     chan1* ch = recver->ch;
@@ -266,8 +264,8 @@ static int lua_chan1_recv (lua_State* L) {
     switch (ret) {
     case CHAN1_TRY_YIELD:
         log_trace("chan1:%p step1, recv, yield in L:%p", ch, L);
-        // resume by lua_chan1_send_after_yield
-        luvco_yield(L, (lua_KContext)ch, lua_chan1_recv_k);
+        // resume by luvco_chan1_send_after_yield
+        luvco_yield(L, (lua_KContext)ch, luvco_chan1_recv_k);
         break;
     case CHAN1_TRY_ERROR:
         lua_pushboolean(L, false);
@@ -275,15 +273,15 @@ static int lua_chan1_recv (lua_State* L) {
     case CHAN1_TRY_START:
         log_trace("chan1:%p step2, recv start, yield thread L:%p", ch, L);
         luvco_toresume(lstate, L, 0);
-        luvco_yield_thread(L, (lua_KContext)NULL, lua_chan1_recv_k, lua_chan1_recv_after_yield, (void*)ch);
-        // then thread will yield, start run by lua_chan1_send_k
+        luvco_yield_thread(L, (lua_KContext)NULL, luvco_chan1_recv_k, luvco_chan1_recv_after_yield, (void*)ch);
+        // then thread will yield, start run by luvco_chan1_send_k
     default:
         assert(0 && "Unexpected chan1 return");
     }
     assert(0 && "Never reach brach");
 }
 
-static int lua_chan1_sender_gc (lua_State* l) {
+static int luvco_chan1_sender_gc (lua_State* l) {
     chan1_sender* sender = luvco_check_udata(l, 1, chan1_sender);
     int oldcount = atomic_fetch_sub(&sender->ch->ref_count, 1);
     if (oldcount == 1) {
@@ -293,7 +291,7 @@ static int lua_chan1_sender_gc (lua_State* l) {
     // TODO: if recv are waiting, return nil
 }
 
-static int lua_chan1_recver_gc (lua_State* l) {
+static int luvco_chan1_recver_gc (lua_State* l) {
     chan1_recver* recver = luvco_check_udata(l, 1, chan1_recver);
     int oldcount = atomic_fetch_sub(&recver->ch->ref_count, 1);
     if (oldcount == 1) {
@@ -303,16 +301,16 @@ static int lua_chan1_recver_gc (lua_State* l) {
 }
 
 static const luaL_Reg sender_m [] = {
-    { "send", lua_chan1_send },
+    { "send", luvco_chan1_send },
     { NULL, NULL}
 };
 
 static const luaL_Reg recver_m [] = {
-    { "recv", lua_chan1_recv },
+    { "recv", luvco_chan1_recv },
     { NULL, NULL}
 };
 
-void luvco_chan1_cross_state (lua_State *Lsend, lua_State *Lrecv) {
+void luvco_chan1_build (lua_State *Lsend, lua_State *Lrecv) {
     chan1* ch = (chan1*)malloc(sizeof(chan1));
     atomic_store(&ch->ref_count, 2);
     luvco_spinlock_init(&ch->mu);

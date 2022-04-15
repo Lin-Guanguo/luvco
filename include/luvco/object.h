@@ -1,5 +1,7 @@
 #pragma once
 
+#define container_of(ptr, type, member) (type*)((char*)(ptr) - (char*)(&(((type*)NULL)->member)))
+
 extern const char* LUVCO_UDATAMETA_SIZEOF_FIELD;
 extern const char* LUVCO_UDATAMETA_MOVEF_FIELD;
 

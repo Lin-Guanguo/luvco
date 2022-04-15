@@ -1,4 +1,4 @@
-#include <luvco/tools.h>
+#include <luvco/lock.h>
 
 #include <assert.h>
 #include <stdlib.h>

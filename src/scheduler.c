@@ -1,10 +1,11 @@
-#include <luvco.h>
 #include <luvco/scheduler.h>
+#include <luvco/ringbuf.h>
 
 #include <uv.h>
 
 #include <assert.h>
 #include <stdlib.h>
+#include <stdatomic.h>
 
 typedef struct luvco_process_data {
     uv_thread_t thread;

@@ -1,5 +1,7 @@
 #include <luvco.h>
-#include <luvco/tools.h>
+#include <luvco/base.h>
+#include <luvco/ringbuf.h>
+#include <luvco/lock.h>
 
 #include <uv.h>
 #include <unity.h>

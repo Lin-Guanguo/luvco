@@ -1,7 +1,9 @@
 #include <luvco.h>
-#include <luvco/tools.h>
+#include <luvco/base.h>
 #include <luvco/object.h>
 #include <luvco/scheduler.h>
+#include <luvco/chan.h>
+#include <luvco/ringbuf.h>
 
 #include <lua/lua.h>
 #include <lua/lauxlib.h>
@@ -228,7 +230,7 @@ static int ispawn_r (lua_State* L) {
     luaL_requiref(NL, "luvco_chan", luvco_open_chan, 0);
     lua_pop(NL, 1);
 
-    luvco_chan1_cross_state(NL, L);
+    luvco_chan1_build(NL, L);
     lua_setglobal(NL, "send_parent");
 
     luvco_toresume(lstate, L, 1);
@@ -242,7 +244,7 @@ static int ispawn_s (lua_State* L) {
     luaL_requiref(NL, "luvco_chan", luvco_open_chan, 0);
     lua_pop(NL, 1);
 
-    luvco_chan1_cross_state(L, NL);
+    luvco_chan1_build(L, NL);
     lua_setglobal(NL, "recv_parent");
 
     luvco_toresume(lstate, L, 1);
@@ -256,9 +258,9 @@ static int ispawn_rs (lua_State* L) {
     luaL_requiref(NL, "luvco_chan", luvco_open_chan, 0);
     lua_pop(NL, 1);
 
-    luvco_chan1_cross_state(NL, L);
+    luvco_chan1_build(NL, L);
     lua_setglobal(NL, "send_parent");
-    luvco_chan1_cross_state(L, NL);
+    luvco_chan1_build(L, NL);
     lua_setglobal(NL, "recv_parent");
 
     luvco_toresume(lstate, L, 2);
@@ -377,8 +379,8 @@ static void print_all_handle (uv_handle_t* h, void* args) {
 void luvco_close (luvco_gstate* state) {
     int ret = uv_loop_close(&state->loop);
     if (ret == UV_EBUSY) {
-        uv_walk(&state->loop, print_all_handle, NULL);
         log_error("uv close return UV_EBUSY");
+        uv_walk(&state->loop, print_all_handle, NULL);
     } else {
         log_debug("uv close");
     }
@@ -394,5 +396,6 @@ void luvco_close (luvco_gstate* state) {
     lua_pushnil(L);
     lua_setfield(L, LUA_REGISTRYINDEX, CORO_TABLE_FIELD);
 
+    lua_gc(L, LUA_GCCOLLECT);
     free(state);
 }

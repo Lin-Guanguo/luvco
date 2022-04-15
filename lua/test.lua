@@ -9,6 +9,7 @@ local sender = luvco.ispawn_s(
         luvco.import("lualibs")
         local ok, data = recv_parent:recv()
         print ("recv over", ok, data)
+        print ("in sub coro: ", data:info())
     ]]
     --end
 )
@@ -16,6 +17,7 @@ local sender = luvco.ispawn_s(
 local addr = luvco.net.new_ip4_addr("127.0.0.1", 8080)
 local server = luvco.net.new_server(addr)
 
+print ("in main coro: ", addr:info())
 local ok = sender:send(addr)
 print ("send over", ok)
 

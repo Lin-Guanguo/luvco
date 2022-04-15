@@ -37,6 +37,20 @@ static int new_ip6_addr (lua_State* L) {
     return new_ip_addr(L, 6);
 }
 
+static int ip_addr_info (lua_State* L) {
+    ip_addr* a = luvco_check_udata(L, 1, ip_addr);
+    char hoststr[NI_MAXHOST];
+    char portstr[NI_MAXSERV];
+    int rc = getnameinfo((struct sockaddr *)&a->addr, sizeof(a->addr), hoststr, sizeof(hoststr), portstr, sizeof(portstr), NI_NUMERICHOST | NI_NUMERICSERV);
+    if (rc == 0) {
+        lua_pushstring(L, hoststr);
+        lua_pushstring(L, portstr);
+        return 2;
+    } else {
+        return 0;
+    }
+}
+
 static void ip_addr_move (void* from, void* to) {
     memcpy(to, from, sizeof(ip_addr));
 }
@@ -300,6 +314,11 @@ static const luaL_Reg net_lib [] = {
     { NULL, NULL}
 };
 
+static const luaL_Reg ip_addr_m [] = {
+    { "info", ip_addr_info },
+    { NULL, NULL}
+};
+
 static const luaL_Reg server_m [] = {
     { "accept", server_accept },
     { "close", server_close },
@@ -317,6 +336,7 @@ static const luaL_Reg con_m [] = {
 
 int luvco_open_net (lua_State* L) {
     luvco_new_meta_moveable(L, ip_addr, ip_addr_move);
+    luaL_setfuncs(L, ip_addr_m, 0);
     luvco_new_meta(L, tcp_server);
     luaL_setfuncs(L, server_m, 0);
     luvco_new_meta(L, tcp_connection);

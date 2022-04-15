@@ -163,6 +163,7 @@ static int server_close (lua_State* L) {
 
         // close when accept directly return
         if (server->waiting_L != NULL) {
+            log_trace("server %p closed, resume waiting accept %p", server, server->waiting_L);
             lua_settop(L, 0);
             lua_pushnil(server->waiting_L);
             luvco_toresume_incb(server, 1);

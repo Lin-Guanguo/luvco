@@ -324,6 +324,9 @@ luvco_gstate* luvco_init (lua_State* L, luvco_newluaf f, void* f_ud) {
     state->main_coro = L;
     state->newluaf = f;
     state->newluaf_ud = f_ud;
+    state->uvworklist = (luvco_ringbuf2*)malloc(luvco_ringbuf2_sizeof(4));
+    luvco_ringbuf2_init(state->uvworklist, 4, 32);
+
     uv_loop_init(&state->loop);
 
     luvco_init_luastate(L, state);
@@ -337,19 +340,26 @@ luvco_gstate* luvco_init (lua_State* L, luvco_newluaf f, void* f_ud) {
 
 typedef struct luvco_deamon_data {
     uv_idle_t idle;
+    luvco_ringbuf2* uvworklist;
     luvco_scheduler* s;
 } luvco_deamon_data;
 
+static void deamon_close_cb (uv_handle_t* handle) {
+    log_debug("deamon close cb called");
+}
+
 static void luvco_deamon (uv_idle_t* handle) {
     luvco_deamon_data* deamon = container_of(handle, luvco_deamon_data, idle);
+    luvco_uvwork* uvwork;
+    while (luvco_ringbuf2_unlockpop(deamon->uvworklist, (void**)&uvwork) == 0) {
+        uvwork->cb(uvwork);
+    }
+
     if ( luvco_scheduler_totalwork(deamon->s) == 0 ) {
         log_debug("deamon: all work end, quit event loop");
         uv_idle_stop(handle);
+        uv_close((uv_handle_t*)handle, deamon_close_cb);
     }
-}
-
-static void deamon_close_cb (uv_handle_t* handle) {
-
 }
 
 void luvco_run (luvco_gstate* state) {
@@ -364,10 +374,10 @@ void luvco_run (luvco_gstate* state) {
 
     luvco_deamon_data deamon;
     deamon.s = s;
+    deamon.uvworklist = state->uvworklist;
     uv_idle_init(&state->loop, &deamon.idle);
     uv_idle_start(&deamon.idle, luvco_deamon);
     uv_run(&state->loop, UV_RUN_DEFAULT);
-    uv_close((uv_handle_t*)&deamon.idle, deamon_close_cb);
 
     log_trace("luvco end, global state:%p", state);
 }
@@ -380,7 +390,7 @@ void luvco_close (luvco_gstate* state) {
     int ret = uv_loop_close(&state->loop);
     if (ret == UV_EBUSY) {
         log_error("uv close return UV_EBUSY");
-        uv_walk(&state->loop, print_all_handle, NULL);
+        // uv_walk(&state->loop, print_all_handle, NULL);
     } else {
         log_debug("uv close");
     }
@@ -397,5 +407,8 @@ void luvco_close (luvco_gstate* state) {
     lua_setfield(L, LUA_REGISTRYINDEX, CORO_TABLE_FIELD);
 
     lua_gc(L, LUA_GCCOLLECT);
+    luvco_ringbuf2_delete(state->uvworklist);
+    free(state->uvworklist);
+    // TODO: delete state->scheduler
     free(state);
 }

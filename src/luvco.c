@@ -16,15 +16,15 @@
 
 static const char* CORO_TABLE_FIELD = "luvco.global_corotable";
 static int CORO_TABLE_COUNT_IDX = 1;
-static const char* GSTATE_FIELD = "luvco.global_state";
 static const char* LSTATE_FIELD = "luvco.local_state";
 static const char* MAINSTATE_TAG_FILED = "luvco.main_state_tag";
 
 static int RESUME_QUEUE_SIZE = 8;
 static int RESUME_QUEUE_BUF_SIZE = 8;
 
-static void local_state_init (luvco_lstate* lstate) {
+static void local_state_init (luvco_lstate* lstate, luvco_gstate* gstate) {
     log_trace("local state init %p", lstate);
+    lstate->gstate = gstate;
     lstate->toresume = (luvco_ringbuf2*)malloc(luvco_ringbuf2_sizeof(RESUME_QUEUE_SIZE));
     luvco_ringbuf2_init(lstate->toresume, RESUME_QUEUE_SIZE, RESUME_QUEUE_BUF_SIZE);
 }
@@ -75,15 +75,13 @@ static int unregister_coro (lua_State* L) {
 }
 
 // lua_state has only one shared luvco_gstate
-static void luvco_init_luastate (lua_State* L, luvco_gstate* state) {
+static void luvco_init_luastate (lua_State* L, luvco_gstate* gstate) {
     luaL_requiref(L, "luvco", luvco_open_base, 1);
     lua_pop(L, 1);
 
-    lua_pushlightuserdata(L, state);
-    lua_setfield(L, LUA_REGISTRYINDEX, GSTATE_FIELD);
     luvco_lstate* lstate = lua_newuserdatauv(L, sizeof(luvco_lstate), 0);
     lua_setfield(L, LUA_REGISTRYINDEX, LSTATE_FIELD);
-    local_state_init(lstate);
+    local_state_init(lstate, gstate);
 
     lua_newtable(L);
     lua_pushinteger(L, 1);
@@ -91,14 +89,7 @@ static void luvco_init_luastate (lua_State* L, luvco_gstate* state) {
     lua_setfield(L, LUA_REGISTRYINDEX, CORO_TABLE_FIELD);
 }
 
-luvco_gstate* luvco_get_gstate (lua_State* L) {
-    lua_getfield(L, LUA_REGISTRYINDEX, GSTATE_FIELD);
-    luvco_gstate* state = (luvco_gstate*)lua_touserdata(L, -1);
-    lua_pop(L, 1);
-    return state;
-}
-
-luvco_lstate* luvco_get_lstate (lua_State* L) {
+luvco_lstate* luvco_get_state (lua_State* L) {
     lua_getfield(L, LUA_REGISTRYINDEX, LSTATE_FIELD);
     luvco_lstate* state = (luvco_lstate*)lua_touserdata(L, -1);
     lua_pop(L, 1);
@@ -167,7 +158,7 @@ enum luvco_resume_return luvco_resume (lua_State_flag* Lb) {
         lua_pop(L, 1);
         if (ty == LUA_TNIL) {
             log_trace("all coro end, close state %p", L);
-            luvco_lstate* lstate = luvco_get_lstate(L);
+            luvco_lstate* lstate = luvco_get_state(L);
             local_state_delete(lstate);
             lua_close(L);
         } else {
@@ -196,7 +187,7 @@ static int spawn (lua_State* L) {
 
     log_trace("spawn from L:%p, NL:%p", L, NL);
 
-    luvco_lstate* lstate = luvco_get_lstate(L);
+    luvco_lstate* lstate = luvco_get_state(L);
     luvco_toresume(lstate, L, 0);
     luvco_toresume(lstate, NL, 0);
     luvco_yield(L, (lua_KContext)NULL, spawn_k);
@@ -209,19 +200,19 @@ static int ispawn_k (lua_State *L, int status, lua_KContext ctx) {
 #define ispawn_base_code \
     size_t str_len; \
     const char* code = luaL_checklstring(L, 1, &str_len); \
-    luvco_gstate* state = luvco_get_gstate(L); \
-    lua_State* NL = (state->newluaf)(state->newluaf_ud); \
+    luvco_lstate* lstate = luvco_get_state(L); \
+    luvco_gstate* gstate = lstate->gstate; \
+    lua_State* NL = (gstate->newluaf)(gstate->newluaf_ud); \
     luaL_loadbuffer(NL, code, str_len, "ispawn_NL_code"); \
-    luvco_init_luastate(NL, state); \
-    luvco_lstate* lstate = luvco_get_lstate(L); \
-    luvco_lstate* nlstate = luvco_get_lstate(NL); \
+    luvco_init_luastate(NL, gstate); \
+    luvco_lstate* nlstate = luvco_get_state(NL); \
     log_trace("ispawn from L:%p, lstate:%p, NL:%p, nlstate:%p", L, lstate, NL, nlstate);
 
 static int ispawn (lua_State* L) {
     ispawn_base_code
     luvco_toresume(lstate, L, 0);
     luvco_toresume(nlstate, NL, 0);
-    luvco_scheduler_addwork(state->scheduler, nlstate);
+    luvco_scheduler_addwork(gstate->scheduler, nlstate);
     luvco_yield(L, (lua_KContext)0, ispawn_k);
 }
 
@@ -235,7 +226,7 @@ static int ispawn_r (lua_State* L) {
 
     luvco_toresume(lstate, L, 1);
     luvco_toresume(nlstate, NL, 0);
-    luvco_scheduler_addwork(state->scheduler, nlstate);
+    luvco_scheduler_addwork(gstate->scheduler, nlstate);
     luvco_yield(L, (lua_KContext)1, ispawn_k);
 }
 
@@ -249,7 +240,7 @@ static int ispawn_s (lua_State* L) {
 
     luvco_toresume(lstate, L, 1);
     luvco_toresume(nlstate, NL, 0);
-    luvco_scheduler_addwork(state->scheduler, nlstate);
+    luvco_scheduler_addwork(gstate->scheduler, nlstate);
     luvco_yield(L, (lua_KContext)1, ispawn_k);
 }
 
@@ -265,7 +256,7 @@ static int ispawn_rs (lua_State* L) {
 
     luvco_toresume(lstate, L, 2);
     luvco_toresume(nlstate, NL, 0);
-    luvco_scheduler_addwork(state->scheduler, nlstate);
+    luvco_scheduler_addwork(gstate->scheduler, nlstate);
     luvco_yield(L, (lua_KContext)2, ispawn_k);
 }
 
@@ -368,7 +359,7 @@ void luvco_run (luvco_gstate* state) {
     luvco_scheduler* s = (luvco_scheduler*)malloc(luvco_scheduler_sizeof(NPROCESS));
     luvco_scheduler_init(s, NPROCESS);
     state->scheduler = s;
-    luvco_lstate* lstate = luvco_get_lstate(state->main_coro);
+    luvco_lstate* lstate = luvco_get_state(state->main_coro);
     luvco_toresume(lstate, state->main_coro, 0);
     luvco_scheduler_addwork(s, lstate);
 
@@ -397,10 +388,8 @@ void luvco_close (luvco_gstate* state) {
 
     // clean main lua state
     lua_State* L = state->main_coro;
-    luvco_lstate* lstate = luvco_get_lstate(L);
+    luvco_lstate* lstate = luvco_get_state(L);
     local_state_delete(lstate);
-    lua_pushnil(L);
-    lua_setfield(L, LUA_REGISTRYINDEX, GSTATE_FIELD);
     lua_pushnil(L);
     lua_setfield(L, LUA_REGISTRYINDEX, LSTATE_FIELD);
     lua_pushnil(L);

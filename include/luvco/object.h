@@ -32,18 +32,18 @@ extern const char* LUVCO_UDATAMETA_MOVEF_FIELD;
     lua_State* waiting_L; luvco_lstate* waiting_lstate; void* waiting_ud[n_ud]
 
 #define luvco_cbdata_set(obj, L) \
-    (obj)->waiting_L=(L); (obj)->waiting_lstate=luvco_get_lstate((L))
+    (obj)->waiting_L=(L); (obj)->waiting_lstate=luvco_get_state((L))
 
 #define luvco_cbdata_set1(obj, L, ud1) \
-    (obj)->waiting_L=(L); (obj)->waiting_lstate=luvco_get_lstate((L)); \
+    (obj)->waiting_L=(L); (obj)->waiting_lstate=luvco_get_state((L)); \
     (obj)->waiting_ud[0]=(void*)(ud1)
 
 #define luvco_cbdata_set2(obj, L, ud1, ud2) \
-    (obj)->waiting_L=(L); (obj)->waiting_lstate=luvco_get_lstate((L)); \
+    (obj)->waiting_L=(L); (obj)->waiting_lstate=luvco_get_state((L)); \
     (obj)->waiting_ud[0]=(void*)(ud1); (obj)->waiting_ud[1]=(void*)(ud2)
 
 #define luvco_cbdata_set3(obj, L, ud1, ud2, ud3) \
-    (obj)->waiting_L=(L); (obj)->waiting_lstate=luvco_get_lstate((L)); \
+    (obj)->waiting_L=(L); (obj)->waiting_lstate=luvco_get_state((L)); \
     (obj)->waiting_ud[0]=(void*)(ud1); (obj)->waiting_ud[1]=(void*)(ud2); (obj)->waiting_ud[2]=(void*)(ud3)
 
 #define luvco_cbdata_clear(obj) \

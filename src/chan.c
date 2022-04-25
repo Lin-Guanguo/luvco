@@ -173,7 +173,8 @@ static int luvco_chan1_send_k (lua_State *L, int status, lua_KContext ctx) {
     }
     chan1* ch = (chan1*)ctx;
     log_trace("chan1:%p step3, start in send_k of L:%p", ch, L);
-    luvco_gstate* gstate = luvco_get_gstate(L);
+    luvco_lstate* lstate = luvco_get_state(L);
+    luvco_gstate* gstate = lstate->gstate;
     luvco_scheduler* scheduler = gstate->scheduler;
     assert(ch->Lfrom == L);
     int moveret = luvco_move_cross_lua(ch->Lfrom, ch->Lto);
@@ -197,7 +198,8 @@ static int luvco_chan1_recv_k (lua_State *L, int status, lua_KContext ctx) {
     }
     chan1* ch = (chan1*)ctx;
     log_trace("chan1:%p step3, start in recv_k of L:%p", ch, L);
-    luvco_gstate* gstate = luvco_get_gstate(L);
+    luvco_lstate* lstate = luvco_get_state(L);
+    luvco_gstate* gstate = lstate->gstate;
     luvco_scheduler* scheduler = gstate->scheduler;
     assert(ch->Lto == L);
     int moveret = luvco_move_cross_lua(ch->Lfrom, ch->Lto);
@@ -226,7 +228,7 @@ int luvco_chan1_send (lua_State* L) {
     chan1_sender* sender = luvco_check_udata(L, 1, chan1_sender);
     luaL_checkany(L, 2);
 
-    luvco_lstate* lstate = luvco_get_lstate(L);
+    luvco_lstate* lstate = luvco_get_state(L);
     chan1* ch = sender->ch;
     int ret = chan1_trysend(L, lstate, ch);
     switch (ret) {
@@ -258,7 +260,7 @@ static void luvco_chan1_recv_after_yield (void* ud) {
 // return a boolean an a value
 int luvco_chan1_recv (lua_State* L) {
     chan1_recver* recver = luvco_check_udata(L, 1, chan1_recver);
-    luvco_lstate* lstate = luvco_get_lstate(L);
+    luvco_lstate* lstate = luvco_get_state(L);
     chan1* ch = recver->ch;
     int ret = chan1_tryrecv(L, lstate, ch);
     switch (ret) {

@@ -95,13 +95,14 @@ static void server_accept_cb (uv_stream_t* tcp, int status) {
 
 static int new_server (lua_State* L) {
     ip_addr* addr = luvco_check_udata(L, 1, ip_addr);
-    luvco_gstate* state = luvco_get_gstate(L);
+    luvco_lstate* lstate = luvco_get_state(L);
+    luvco_gstate* gstate = lstate->gstate;
 
     tcp_server* server = luvco_pushudata_with_meta(L, tcp_server);
     server->closed = false;
     luvco_cbdata_clear(server);
 
-    int ret = uv_tcp_init(&state->loop, &server->tcp);
+    int ret = uv_tcp_init(&gstate->loop, &server->tcp);
     assert(ret == 0);
     uv_tcp_bind(&server->tcp, (const struct sockaddr*)&addr->addr, 0);
 
@@ -119,7 +120,8 @@ static int server_accept_k (lua_State *L, int status, lua_KContext ctx) {
 // return nil if server already closed or close when waiting accept
 static int server_accept (lua_State* L) {
     tcp_server* server = luvco_check_udata(L, 1, tcp_server);
-    luvco_gstate* state = luvco_get_gstate(L);
+    luvco_lstate* lstate = luvco_get_state(L);
+    luvco_gstate* gstate = lstate->gstate;
 
     // if closed, return nil when accept
     if (server->closed) {
@@ -133,7 +135,7 @@ static int server_accept (lua_State* L) {
     client->write_req = NULL;
     client->write_bufs = NULL;
     client->write_bufs_n = 0;
-    int ret = uv_tcp_init(&state->loop, (uv_tcp_t *)&client->tcp);
+    int ret = uv_tcp_init(&gstate->loop, (uv_tcp_t *)&client->tcp);
     assert(ret == 0);
 
     ret = uv_accept((uv_stream_t*)&server->tcp, (uv_stream_t*)&client->tcp);

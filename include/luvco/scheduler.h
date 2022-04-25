@@ -16,3 +16,14 @@ int luvco_scheduler_addwork (luvco_scheduler* s, luvco_lstate* l);
 int luvco_scheduler_resumework (luvco_scheduler* s, luvco_lstate* l);
 
 int luvco_scheduler_totalwork (luvco_scheduler* s);
+
+
+typedef struct luvco_uvwork luvco_uvwork;
+
+typedef void (*luvco_uvwork_cb) (luvco_uvwork* work);
+
+typedef struct luvco_uvwork {
+    luvco_uvwork_cb cb;
+} luvco_uvwork;
+
+void luvco_add_uvwork(luvco_gstate* gstate, luvco_uvwork* uvwork);

@@ -112,3 +112,7 @@ int luvco_scheduler_resumework (luvco_scheduler* s, luvco_lstate* l) {
 int luvco_scheduler_totalwork (luvco_scheduler* s) {
     return atomic_load(&s->total_work);
 }
+
+void luvco_add_uvwork(luvco_gstate* gstate, luvco_uvwork* uvwork) {
+    luvco_ringbuf2_spinpush(gstate->uvworklist, uvwork);
+}

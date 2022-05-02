@@ -24,7 +24,4 @@ make
 
 * scheduler graceful quit
 
-* lua_close(main_coro) 的诡异错误
-
-* libuv 并不线程安全, 由于lua函数会在其它线程运行, 不能直接调用libuv的操作
 

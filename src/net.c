@@ -57,63 +57,70 @@ static void ip_addr_move (void* from, void* to) {
     memcpy(to, from, sizeof(ip_addr));
 }
 
+typedef struct tcp_connection tcp_connection;
+
 typedef struct tcp_server {
     uv_tcp_t tcp;
-    luvco_uvwork uvwork_new;
-    luvco_uvwork uvwork_accept;
-    luvco_uvwork uvwork_close;
     bool closed;
 
-    luvco_cbdata(1);
+    struct {
+        luvco_cbdata;
+        ip_addr* addr;
+    } new;
+
+    struct {
+        luvco_cbdata;
+        tcp_connection* con;
+    } accept;
+
+    struct {
+        luvco_cbdata;
+    } close;
 } tcp_server;
 
 typedef struct tcp_connection {
     uv_tcp_t tcp;
-    luvco_uvwork uvwork_read;
-    luvco_uvwork uvwork_write;
-    luvco_uvwork uvwork_close;
     bool closed;
 
-    char* read_buf; // read buf, alloc in first read, free in gc
+    struct {
+        char* buf; // read buf, alloc in first read, free in gc
+        luvco_cbdata;
+        size_t nread;
+    } read;
 
-    uv_write_t* write_req;
-    uv_buf_t* write_bufs; // array of buf, wait to write, alloc in write, free in gc
-    size_t write_bufs_n;
+    struct {
+        uv_write_t* req;
+        uv_buf_t* bufs; // array of buf, wait to write, alloc in write, free in gc
+        size_t bufs_n;
+        luvco_cbdata;
+        union {
+            unsigned int write_n;   // args
+            int status;             // return
+        } u;
+    } write;
 
-    luvco_cbdata(2);
+    struct {
+        luvco_cbdata;
+    } close;
 } tcp_connection;
-
-static void server_accept_cb (uv_stream_t* tcp, int status) {
-    tcp_server* server = container_of(tcp, tcp_server, tcp);
-    log_trace("server %p accept cb called, waiting_lstate=%p", server, server->waiting_lstate);
-    if (server->waiting_L != NULL) {
-        luvco_cbdata_extract(server);
-        tcp_connection* con = (tcp_connection*)server->waiting_ud[0];
-        luvco_cbdata_clear(server);
-
-        int ret = uv_accept((uv_stream_t*)&server->tcp, (uv_stream_t*)&con->tcp);
-        assert(ret == 0);
-
-        con->closed = false;
-        luvco_toresume(lstate, L, 1); // one res is connection, push in accept
-    }
-}
 
 static int new_server_k (lua_State *L, int status, lua_KContext ctx) {
     return 1;
 }
 
+static void server_accept_cb (uv_stream_t* tcp, int status);
+
 static void new_server_uvwork (luvco_uvwork* uvwork) {
-    tcp_server* server = container_of(uvwork, tcp_server, uvwork_new);
-    luvco_cbdata_extract(server);
-    ip_addr* addr = (ip_addr*)server->waiting_ud[0];
+    tcp_server* server = container_of(uvwork, tcp_server, new.uv);
+    luvco_cbdata_extract(server->new);
+    ip_addr* addr = server->new.addr;
 
     int ret = uv_tcp_init(&gstate->loop, &server->tcp);
     assert(ret == 0);
     uv_tcp_bind(&server->tcp, (const struct sockaddr*)&addr->addr, 0);
 
     log_trace("server %p start listen", server);
-    luvco_cbdata_clear(server);
+    server->accept.L = NULL;
     uv_listen((uv_stream_t*)&server->tcp, SOMAXCONN, &server_accept_cb);
 
     luvco_toresume(lstate, L, 1);
@@ -129,12 +136,13 @@ static int new_server (lua_State* L) {
 
     tcp_server* server = luvco_pushudata_with_meta(L, tcp_server);
     server->closed = false;
-    server->uvwork_new.cb = new_server_uvwork;
-    server->uvwork_accept.cb = server_accept_uvwork;
-    server->uvwork_close.cb = server_close_uvwork;
+    server->new.uv.cb = new_server_uvwork;
+    server->accept.uv.cb = server_accept_uvwork;
+    server->close.uv.cb = server_close_uvwork;
 
-    luvco_cbdata_set1(server, L, lstate, addr);
-    luvco_add_uvwork(gstate, &server->uvwork_new);
+    luvco_cbdata_set(server->new, L, lstate);
+    server->new.addr = addr;
+    luvco_add_uvwork(gstate, &server->new.uv);
     luvco_yield(L, (lua_KContext)NULL, new_server_k);
 }
 
@@ -143,17 +151,34 @@ static int server_accept_k (lua_State *L, int status, lua_KContext ctx) {
     return 1;
 }
 
+static void server_accept_cb (uv_stream_t* tcp, int status) {
+    tcp_server* server = container_of(tcp, tcp_server, tcp);
+    log_trace("server %p accept cb called, waiting_lstate=%p", server, server->new.L);
+    if (server->accept.L != NULL) {
+        luvco_cbdata_extract(server->accept);
+        tcp_connection* con = server->accept.con;
+        server->accept.L = NULL;
+
+        int ret = uv_accept((uv_stream_t*)&server->tcp, (uv_stream_t*)&con->tcp);
+        assert(ret == 0);
+
+        con->closed = false;
+        luvco_toresume(lstate, L, 1); // one res is connection, push in accept
+    }
+}
+
 static void server_accept_uvwork (luvco_uvwork* uvwork) {
-    tcp_server* server = container_of(uvwork, tcp_server, uvwork_accept);
-    luvco_cbdata_extract(server);
-    tcp_connection* client = (tcp_connection*)server->waiting_ud[0];
+    tcp_server* server = container_of(uvwork, tcp_server, accept.uv);
+    luvco_cbdata_extract(server->accept);
+    tcp_connection* client = server->accept.con;
 
     int ret = uv_tcp_init(&gstate->loop, (uv_tcp_t *)&client->tcp);
     assert(ret == 0);
 
     ret = uv_accept((uv_stream_t*)&server->tcp, (uv_stream_t*)&client->tcp);
     if (ret < 0) {
-        luvco_cbdata_set1(server, L, lstate, client);
+        luvco_cbdata_set(server->accept, L, lstate);
+        server->accept.con = client;
     } else {
         luvco_toresume(lstate, L, 1);
     }
@@ -177,17 +202,18 @@ static int server_accept (lua_State* L) {
     }
 
     tcp_connection* client = luvco_pushudata_with_meta(L, tcp_connection);
-    client->uvwork_read.cb = connection_read_uvwork;
-    client->uvwork_write.cb = connection_write_uvwork;
-    client->uvwork_close.cb = connection_close_uvwork;
+    client->read.uv.cb = connection_read_uvwork;
+    client->write.uv.cb = connection_write_uvwork;
+    client->close.uv.cb = connection_close_uvwork;
     client->closed = false;
-    client->read_buf = NULL;
-    client->write_req = NULL;
-    client->write_bufs = NULL;
-    client->write_bufs_n = 0;
+    client->read.buf = NULL;
+    client->write.req = NULL;
+    client->write.bufs = NULL;
+    client->write.bufs_n = 0;
 
-    luvco_cbdata_set1(server, L, lstate, client);
-    luvco_add_uvwork(gstate, &server->uvwork_new);
+    luvco_cbdata_set(server->accept, L, lstate);
+    server->accept.con = client;
+    luvco_add_uvwork(gstate, &server->accept.uv);
     luvco_yield(L, (lua_KContext)NULL, server_accept_k);
 }
 
@@ -197,11 +223,11 @@ static int server_close_k (lua_State *L, int status, lua_KContext ctx) {
 
 static void server_close_cb (uv_handle_t* handle) {
     tcp_server* server = container_of(handle, tcp_server, tcp);
-    luvco_toresume_incb(server, 0);
+    luvco_toresume_incb(server->close, 0);
 }
 
 static void server_close_uvwork (luvco_uvwork* uvwork) {
-    tcp_server* server = container_of(uvwork, tcp_server, uvwork_close);
+    tcp_server* server = container_of(uvwork, tcp_server, close.uv);
     uv_close((uv_handle_t*)&server->tcp, server_close_cb);
 }
 
@@ -214,15 +240,15 @@ static int server_close (lua_State* L) {
         log_trace("server %p closed", server);
 
         // close when accept directly return
-        if (server->waiting_L != NULL) {
-            log_trace("server %p closed, resume waiting accept %p", server, server->waiting_L);
+        if (server->accept.L != NULL) {
+            log_trace("server %p closed, resume waiting accept %p", server, server->accept.L);
             lua_settop(L, 0);
-            lua_pushnil(server->waiting_L);
-            luvco_toresume_incb(server, 1);
+            lua_pushnil(server->accept.L);
+            luvco_toresume_incb(server->accept, 1);
         }
 
-        luvco_cbdata_set(server, L, lstate);
-        luvco_add_uvwork(gstate, &server->uvwork_close);
+        luvco_cbdata_set(server->close, L, lstate);
+        luvco_add_uvwork(gstate, &server->close.uv);
         luvco_yield(L, (lua_KContext)NULL, server_close_k);
     }
     return 0;
@@ -237,29 +263,19 @@ static int server_gc (lua_State* L) {
 
 static void connection_alloc_cb (uv_handle_t* handle, size_t suggested_size, uv_buf_t* buf) {
     tcp_connection* con = container_of(handle, tcp_connection, tcp);
-    if (con->read_buf == NULL) {
-        con->read_buf = (char*)malloc(suggested_size);
+    if (con->read.buf == NULL) {
+        con->read.buf = (char*)malloc(suggested_size);
     }
-    buf->base = con->read_buf;
+    buf->base = con->read.buf;
     buf->len = suggested_size;
-}
-
-static void connection_read_cb (uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
-    uv_read_stop(stream); // one shot read
-    tcp_connection* con = container_of(stream, tcp_connection, tcp);
-    // log_trace("connection read cb called %p", con);
-
-    con->waiting_ud[0] = (void*)nread;
-    con->waiting_ud[1] = (void*)buf;
-    luvco_toresume_incb(con, 0);
 }
 
 static int connection_read_k (lua_State *L, int status, lua_KContext ctx) {
     tcp_connection* con = (tcp_connection*)ctx;
-    ssize_t nread = (ssize_t)con->waiting_ud[0];
-    uv_buf_t* buf = (uv_buf_t*)con->waiting_ud[1];
+    ssize_t nread = (ssize_t)con->read.nread;
+    char* buf = con->read.buf;
     if (nread > 0) {
-        lua_pushlstring(L, buf->base, nread);
+        lua_pushlstring(L, buf, nread);
     } else if (nread == UV_EOF) {
         log_trace("connection %p read eof", con);
         lua_pushstring(L, "");
@@ -270,8 +286,17 @@ static int connection_read_k (lua_State *L, int status, lua_KContext ctx) {
     return 1;
 }
 
+static void connection_read_cb (uv_stream_t* stream, ssize_t nread, const uv_buf_t* buf) {
+    uv_read_stop(stream); // one shot read
+    tcp_connection* con = container_of(stream, tcp_connection, tcp);
+    // log_trace("connection read cb called %p", con);
+
+    con->read.nread = nread;
+    luvco_toresume_incb(con->read, 0);
+}
+
 static void connection_read_uvwork(luvco_uvwork* uvwork) {
-    tcp_connection* con = container_of(uvwork, tcp_connection, uvwork_read);
+    tcp_connection* con = container_of(uvwork, tcp_connection, read.uv);
     int ret = uv_read_start((uv_stream_t*)&con->tcp, connection_alloc_cb, connection_read_cb);
     assert(ret == 0);
 }
@@ -285,20 +310,14 @@ static int connection_read (lua_State* L) {
     luvco_gstate* gstate = lstate->gstate;
     log_trace("connection %p read", con);
 
-    luvco_cbdata_set(con, L, lstate);
-    luvco_add_uvwork(gstate, &con->uvwork_read);
+    luvco_cbdata_set(con->read, L, lstate);
+    luvco_add_uvwork(gstate, &con->read.uv);
     luvco_yield(L, (lua_KContext)con, connection_read_k);
-}
-
-static void connection_write_cb (uv_write_t* req, int status) {
-    tcp_connection* con = container_of(req->handle, tcp_connection, tcp);
-    con->waiting_ud[0] = (void*)(intptr_t)status;
-    luvco_toresume_incb(con, 0);
 }
 
 static int connection_write_k (lua_State *L, int status, lua_KContext ctx) {
     tcp_connection* con = (tcp_connection*)ctx;
-    int write_status = (int)(intptr_t)con->waiting_ud[0];
+    int write_status = (int)(intptr_t)con->write.u.status;
     if (write_status != 0) {
         log_error("connection %p write error, status %d", con, status);
     }
@@ -306,10 +325,16 @@ static int connection_write_k (lua_State *L, int status, lua_KContext ctx) {
     return 1;
 }
 
+static void connection_write_cb (uv_write_t* req, int status) {
+    tcp_connection* con = container_of(req->handle, tcp_connection, tcp);
+    con->write.u.status = status;
+    luvco_toresume_incb(con->write, 0);
+}
+
 static void connection_write_uvwork(luvco_uvwork* uvwork) {
-    tcp_connection* con = container_of(uvwork, tcp_connection, uvwork_read);
-    size_t write_n = (size_t)con->waiting_ud[0];
-    int ret = uv_write(con->write_req, (uv_stream_t*)&con->tcp, con->write_bufs, write_n, connection_write_cb);
+    tcp_connection* con = container_of(uvwork, tcp_connection, write.uv);
+    size_t write_n = (size_t)con->write.u.write_n;
+    int ret = uv_write(con->write.req, (uv_stream_t*)&con->tcp, con->write.bufs, write_n, connection_write_cb);
     assert(ret == 0);
 }
 
@@ -322,23 +347,24 @@ static int connection_write (lua_State* L) {
 
     int top = lua_gettop(L);
     size_t write_n = top - 1;
-    if (con->write_bufs_n < write_n) {
-        con->write_bufs = (uv_buf_t*)realloc(con->write_bufs, sizeof(uv_buf_t) * write_n);
-        con->write_bufs_n = write_n;
+    if (con->write.bufs_n < write_n) {
+        con->write.bufs = (uv_buf_t*)realloc(con->write.bufs, sizeof(uv_buf_t) * write_n);
+        con->write.bufs_n = write_n;
     }
     for (int i = 2; i <= top; ++i) {
         size_t len;
         char* s = (char*)luaL_checklstring(L, i, &len);
-        con->write_bufs[i-2].base = s;
-        con->write_bufs[i-2].len = len;
+        con->write.bufs[i-2].base = s;
+        con->write.bufs[i-2].len = len;
     }
-    if (con->write_req == NULL) {
-        con->write_req = (uv_write_t*)malloc(sizeof(uv_write_t));
-        assert(con->write_req != NULL);
+    if (con->write.req == NULL) {
+        con->write.req = (uv_write_t*)malloc(sizeof(uv_write_t));
+        assert(con->write.req != NULL);
     }
 
-    luvco_cbdata_set1(con, L, lstate, write_n);
-    luvco_add_uvwork(gstate, &con->uvwork_write);
+    con->write.u.write_n = write_n;
+    luvco_cbdata_set(con->write, L, lstate);
+    luvco_add_uvwork(gstate, &con->write.uv);
     luvco_yield(L, (lua_KContext)con, connection_write_k);
 }
 
@@ -348,11 +374,11 @@ static int connection_close_k (lua_State *L, int status, lua_KContext ctx) {
 
 static void connection_close_cb (uv_handle_t* handle) {
     tcp_connection* con = container_of(handle, tcp_connection, tcp);
-    luvco_toresume_incb(con, 0);
+    luvco_toresume_incb(con->close, 0);
 }
 
 static void connection_close_uvwork(luvco_uvwork* uvwork) {
-    tcp_connection* con = container_of(uvwork, tcp_connection, uvwork_close);
+    tcp_connection* con = container_of(uvwork, tcp_connection, close.uv);
     uv_close((uv_handle_t *)&con->tcp, connection_close_cb);
 }
 
@@ -365,9 +391,10 @@ static int connection_close (lua_State *L) {
     if (!con->closed) {
         log_trace("connection %p close", con);
         con->closed = true;
+        // TODO: reading writding check
 
-        luvco_cbdata_set(con, L, lstate);
-        luvco_add_uvwork(gstate, &con->uvwork_close);
+        luvco_cbdata_set(con->close, L, lstate);
+        luvco_add_uvwork(gstate, &con->close.uv);
         luvco_yield(L, (lua_KContext)con, connection_close_k);
     }
     return 0;
@@ -377,9 +404,9 @@ static int connection_gc (lua_State *L) {
     tcp_connection* con = luvco_check_udata(L, 1, tcp_connection);
     log_trace("connection %p gc", con);
     connection_close(L);
-    free(con->read_buf);
-    free(con->write_req);
-    free(con->write_bufs);
+    free(con->read.buf);
+    free(con->write.req);
+    free(con->write.bufs);
     return 0;
 }
 

@@ -39,7 +39,9 @@ extern const char* LUVCO_UDATAMETA_MOVEF_FIELD;
     luvco_lstate* lstate = (obj).lstate; \
     luvco_gstate* gstate = lstate->gstate
 
-#define luvco_toresume_incb(obj, nargs) \
-    luvco_toresume((obj).lstate, (obj).L, (nargs))
+#define luvco_toresume_incb(obj, nargs) do {\
+    lua_State* L = (obj).L; \
+    (obj).L = NULL; \
+    luvco_toresume((obj).lstate, L, (nargs));} while(0)
 
 typedef void (*luvco_moveobj_f) (void* from, void* to);

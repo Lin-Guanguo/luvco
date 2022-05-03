@@ -327,10 +327,14 @@ static int luvco_chan1_sender_gc (lua_State* l) {
 
     if (ch->waiting_state == CHAN1_WAITING_RECVER_CLOSE) {
         free(ch);
-    } else if (ch->waiting_state == CHAN1_WAITING_TO_RECV) {
-        // if recver close, sender still waiting to send
-        ch->waiting_state = CHAN1_WAITING_SENDER_CLOSE;
-        luvco_toresume(ch->Lto_lstate, ch->Lto, 0);
+    } else {
+        if (ch->waiting_state == CHAN1_WAITING_TO_RECV) {
+            // if recver close, sender still waiting to send
+            ch->waiting_state = CHAN1_WAITING_SENDER_CLOSE;
+            luvco_toresume(ch->Lto_lstate, ch->Lto, 0);
+        } else {
+            ch->waiting_state = CHAN1_WAITING_SENDER_CLOSE;
+        }
     }
     luvco_spinlock_unlock(&ch->mu);
     return 0;
@@ -344,10 +348,14 @@ static int luvco_chan1_recver_gc (lua_State* l) {
 
     if (ch->waiting_state == CHAN1_WAITING_SENDER_CLOSE) {
         free(ch);
-    } else if (ch->waiting_state == CHAN1_WAITING_TO_SEND) {
-        // if recver close, sender still waiting to send
-        ch->waiting_state = CHAN1_WAITING_RECVER_CLOSE;
-        luvco_toresume(ch->Lfrom_lstate, ch->Lfrom, 0);
+    } else {
+        if (ch->waiting_state == CHAN1_WAITING_TO_SEND) {
+            // if recver close, sender still waiting to send, resume it
+            ch->waiting_state = CHAN1_WAITING_RECVER_CLOSE;
+            luvco_toresume(ch->Lfrom_lstate, ch->Lfrom, 0);
+        } else {
+            ch->waiting_state = CHAN1_WAITING_RECVER_CLOSE;
+        }
     }
     luvco_spinlock_unlock(&ch->mu);
     return 0;

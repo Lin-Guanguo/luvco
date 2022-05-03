@@ -83,7 +83,8 @@ static void luvco_init_luastate (lua_State* L, luvco_gstate* gstate) {
     luaL_requiref(L, "luvco", luvco_open_base, 1);
     lua_pop(L, 1);
 
-    luvco_lstate* lstate = lua_newuserdatauv(L, sizeof(luvco_lstate), 0);
+    luvco_lstate* lstate = (luvco_lstate*)malloc(sizeof(luvco_lstate));
+    lua_pushlightuserdata(L, lstate);
     lua_setfield(L, LUA_REGISTRYINDEX, LSTATE_FIELD);
     local_state_init(lstate, gstate);
 
@@ -165,6 +166,7 @@ enum luvco_resume_return luvco_resume (lua_State_flag* Lb) {
             log_trace("all coro end, close L:%p, lstate:%p", L, lstate);
             lua_close(L);               // 1, close L
             local_state_delete(lstate); // 3, close lstate.  ORDER IS IMPORTANT!!!
+            free(lstate);
         } else {
             lua_gc(L, LUA_GCCOLLECT);
         }

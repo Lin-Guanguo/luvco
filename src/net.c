@@ -126,6 +126,17 @@ static int tcp_server_move (void* from, void* to) {
     return 0;
 }
 
+static int tcp_connection_move (void* from, void* to) {
+    tcp_connection_warp* con_w = (tcp_connection_warp*)from;
+    tcp_connection* con = con_w->con;
+    if (con_w->moved || con->read.L || con->write.L || con->close.L) {
+        return 1;
+    }
+    memcpy(to, from, sizeof(*con_w));
+    con_w->moved = true;
+    return 0;
+}
+
 static int new_server_k (lua_State *L, int status, lua_KContext ctx) {
     return 1;
 }
@@ -528,7 +539,7 @@ int luvco_open_net (lua_State* L) {
     luaL_setfuncs(L, ip_addr_m, 0);
     luvco_new_meta_moveable(L, tcp_server_warp , tcp_server_move);
     luaL_setfuncs(L, server_m, 0);
-    luvco_new_meta(L, tcp_connection_warp);
+    luvco_new_meta_moveable(L, tcp_connection_warp, tcp_connection_move);
     luaL_setfuncs(L, con_m, 0);
 
     int ty = lua_getglobal(L, "luvco");

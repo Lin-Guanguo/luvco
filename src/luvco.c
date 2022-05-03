@@ -35,6 +35,10 @@ static void local_state_delete (luvco_lstate* lstate) {
     free(lstate->toresume);
 }
 
+static void print_all_handle (uv_handle_t* h, void* args) {
+    printf("--%p\t%d:%s\n", h, h->type, uv_handle_type_name(h->type));
+}
+
 // top of stack is coroutine thread.
 // prevent gc collect coroutine
 //
@@ -157,10 +161,11 @@ enum luvco_resume_return luvco_resume (lua_State_flag* Lb) {
         int ty = lua_getfield(L, LUA_REGISTRYINDEX, MAINSTATE_TAG_FILED);
         lua_pop(L, 1);
         if (ty == LUA_TNIL) {
-            log_trace("all coro end, close state %p", L);
             luvco_lstate* lstate = luvco_get_state(L);
-            local_state_delete(lstate);
-            lua_close(L);
+            log_trace("all coro end, close L:%p, lstate:%p", L, lstate);
+            lua_close(L);               // 1, close L
+            local_state_delete(lstate); // 2, close lstate.  ORDER IS IMPORTANT!!!
+            uv_walk(&lstate->gstate->loop, print_all_handle, NULL);
         } else {
             lua_gc(L, LUA_GCCOLLECT);
         }
@@ -373,9 +378,6 @@ void luvco_run (luvco_gstate* state) {
     log_trace("luvco end, global state:%p", state);
 }
 
-static void print_all_handle (uv_handle_t* h, void* args) {
-    printf("%p\t%d:%s\n", h, h->type, uv_handle_type_name(h->type));
-}
 
 void luvco_close (luvco_gstate* state) {
     int ret = uv_loop_close(&state->loop);

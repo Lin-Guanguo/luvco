@@ -44,4 +44,5 @@ extern const char* LUVCO_UDATAMETA_MOVEF_FIELD;
     (obj).L = NULL; \
     luvco_toresume((obj).lstate, L, (nargs));} while(0)
 
-typedef void (*luvco_moveobj_f) (void* from, void* to);
+// return 0 mean move successfully
+typedef int (*luvco_moveobj_f) (void* from, void* to);

@@ -47,9 +47,14 @@ static enum luvco_move_return move_udata(lua_State *from, lua_State *to) {
     void* newdata = lua_newuserdatauv(to, datasize, 0);
     lua_rotate(to, -2, 1);
     lua_setmetatable(to, -2);
-    movef(data, newdata);
-
     lua_pop(from, 4); // metatable, __movef, __name, __sizeof
+
+    ret = movef(data, newdata);
+    if (ret != 0) {
+        lua_pop(to, 1); // pop move failed udata
+        lua_pushnil(to);
+        return LUVCO_MOVE_FAILED;
+    }
     return LUVCO_MOVE_OK;
 }
 
@@ -183,6 +188,7 @@ static int luvco_chan1_send_k (lua_State *L, int status, lua_KContext ctx) {
         lua_pushboolean(ch->Lto, true);
         lua_rotate(ch->Lto, -2, 1);
     } else {
+        log_warn("move obj error, code=%d", moveret);
         lua_pushboolean(ch->Lfrom, false);
         lua_pushboolean(ch->Lto, false);
         lua_rotate(ch->Lto, -2, 1);
@@ -208,6 +214,7 @@ static int luvco_chan1_recv_k (lua_State *L, int status, lua_KContext ctx) {
         lua_pushboolean(ch->Lto, true);
         lua_rotate(ch->Lto, -2, 1);
     } else {
+        log_warn("move obj error, code=%d", moveret);
         lua_pushboolean(ch->Lfrom, false);
         lua_pushboolean(ch->Lto, false);
         lua_rotate(ch->Lto, -2, 1);

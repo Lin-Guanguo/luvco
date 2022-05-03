@@ -57,7 +57,7 @@ static void scheduler_thread_cb (void* arg) {
         case LUVCO_RESUME_LSTATE_END:
             atomic_fetch_add(&s->running_work, -1);
             ret = atomic_fetch_add(&s->total_work, -1);
-            log_trace("scheduler end lstate:%p, totalwork=%d", lstate, ret-1);
+            log_trace("scheduler end lstate:%p, totalwork=%d, yieldwork=%d", lstate, ret-1, atomic_load(&s->yield_work));
             break;
         case LUVCO_RESUME_YIELD_THREAD:
             atomic_fetch_add(&s->running_work, -1);

@@ -24,4 +24,4 @@ make
 
 * scheduler graceful quit
 
-
+* tcp_connection, tcp_server 需要间接内存处理, 只有这样才能move

@@ -6,6 +6,7 @@ enum luvco_move_return {
     LUVCO_MOVE_OK,
     LUVCO_MOVE_NONMOVEABLE_UDATA,
     LUVCO_MOVE_UDATA_TO_UNIMPORT_STATE,
+    LUVCO_MOVE_FAILED,
 };
 
 enum luvco_move_return luvco_move_cross_lua(lua_State *from, lua_State *to);

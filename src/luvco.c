@@ -161,14 +161,17 @@ enum luvco_resume_return luvco_resume (lua_State_flag* Lb) {
         }
         int ty = lua_getfield(L, LUA_REGISTRYINDEX, MAINSTATE_TAG_FILED);
         lua_pop(L, 1);
+        luvco_lstate* lstate = luvco_get_state(L);
         if (ty == LUA_TNIL) {
-            luvco_lstate* lstate = luvco_get_state(L);
-            log_trace("all coro end, close L:%p, lstate:%p", L, lstate);
+            log_trace("lstate:%p, all coro end, close L:%p", lstate, L);
             lua_close(L);               // 1, close L
-            local_state_delete(lstate); // 3, close lstate.  ORDER IS IMPORTANT!!!
+            local_state_delete(lstate); // 2, close lstate.  ORDER IS IMPORTANT!!!
             free(lstate);
         } else {
+            log_trace("lstate:%p, all coro end, is main coro, gc", lstate);
             lua_gc(L, LUA_GCCOLLECT);
+            local_state_delete(lstate);
+            free(lstate);
         }
         return LUVCO_RESUME_LSTATE_END;
     default:
@@ -391,8 +394,6 @@ void luvco_close (luvco_gstate* state) {
 
     // clean main lua state
     lua_State* L = state->main_coro;
-    luvco_lstate* lstate = luvco_get_state(L);
-    local_state_delete(lstate);
     lua_pushnil(L);
     lua_setfield(L, LUA_REGISTRYINDEX, LSTATE_FIELD);
     lua_pushnil(L);

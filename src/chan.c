@@ -327,6 +327,7 @@ static int luvco_chan1_sender_gc (lua_State* l) {
     if (ch->waiting_state == CHAN1_WAITING_RECVER_CLOSE) {
         log_debug("chan1:%p sender gc, free chan", ch);
         free(ch);
+        return 0;
     } else {
         log_debug("chan1:%p sender gc, wait other part free chan", ch);
         if (ch->waiting_state == CHAN1_WAITING_TO_RECV) {
@@ -349,6 +350,7 @@ static int luvco_chan1_recver_gc (lua_State* l) {
     if (ch->waiting_state == CHAN1_WAITING_SENDER_CLOSE) {
         log_debug("chan1:%p recver gc, free chan", ch);
         free(ch);
+        return 0;
     } else {
         log_debug("chan1:%p recver gc, wait other part free chan", ch);
         if (ch->waiting_state == CHAN1_WAITING_TO_SEND) {

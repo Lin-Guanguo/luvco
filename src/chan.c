@@ -323,11 +323,12 @@ static int luvco_chan1_sender_gc (lua_State* l) {
     chan1_sender* sender = luvco_check_udata(l, 1, chan1_sender);
     chan1* ch = sender->ch;
     luvco_spinlock_lock(&ch->mu);
-    log_debug("chan1:%p sender gc", ch);
 
     if (ch->waiting_state == CHAN1_WAITING_RECVER_CLOSE) {
+        log_debug("chan1:%p sender gc, free chan", ch);
         free(ch);
     } else {
+        log_debug("chan1:%p sender gc, wait other part free chan", ch);
         if (ch->waiting_state == CHAN1_WAITING_TO_RECV) {
             // if recver close, sender still waiting to send
             ch->waiting_state = CHAN1_WAITING_SENDER_CLOSE;
@@ -344,11 +345,12 @@ static int luvco_chan1_recver_gc (lua_State* l) {
     chan1_recver* recver = luvco_check_udata(l, 1, chan1_recver);
     chan1* ch = recver->ch;
     luvco_spinlock_lock(&ch->mu);
-    log_debug("chan1:%p recver gc", ch);
 
     if (ch->waiting_state == CHAN1_WAITING_SENDER_CLOSE) {
+        log_debug("chan1:%p recver gc, free chan", ch);
         free(ch);
     } else {
+        log_debug("chan1:%p recver gc, wait other part free chan", ch);
         if (ch->waiting_state == CHAN1_WAITING_TO_SEND) {
             // if recver close, sender still waiting to send, resume it
             ch->waiting_state = CHAN1_WAITING_RECVER_CLOSE;

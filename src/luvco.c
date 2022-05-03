@@ -165,7 +165,6 @@ enum luvco_resume_return luvco_resume (lua_State_flag* Lb) {
             log_trace("all coro end, close L:%p, lstate:%p", L, lstate);
             lua_close(L);               // 1, close L
             local_state_delete(lstate); // 2, close lstate.  ORDER IS IMPORTANT!!!
-            uv_walk(&lstate->gstate->loop, print_all_handle, NULL);
         } else {
             lua_gc(L, LUA_GCCOLLECT);
         }

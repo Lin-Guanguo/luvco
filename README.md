@@ -22,4 +22,4 @@ make
 
 ## TODO
 
-* scheduler graceful quit
+* python scrip for test

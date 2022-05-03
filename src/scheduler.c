@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdatomic.h>
+#include <pthread.h>
 
 typedef struct luvco_process_data {
     uv_thread_t thread;
@@ -22,6 +23,8 @@ typedef struct luvco_scheduler {
     atomic_int yield_work;
     atomic_int total_work;
 
+    volatile bool stop_flag;
+
     luvco_process_data pdata[];
 } luvco_scheduler;
 
@@ -30,17 +33,22 @@ static void scheduler_thread_cb (void* arg) {
     luvco_process_data* pdata = (luvco_process_data*)arg;
     luvco_scheduler* s = pdata->scheduler;
     luvco_ringbuf2* worklist = s->worklist;
+    int thread_i = (int)(pdata - s->pdata);
     for (;;) {
         luvco_lstate* lstate;
         lua_State* L;
         int ret = luvco_ringbuf2_pop(worklist, (void**)&lstate);
         if (ret != 0) {
+            if (s->stop_flag) {
+                log_debug("thread %d stop", thread_i);
+                break;
+            }
             continue;
         }
 
         int resumeret = 0;
         while (luvco_ringbuf2_pop(lstate->toresume, (void**)&L) == 0) {
-            log_trace("Thread %p resume L:%p", arg, L);
+            log_trace("thread %d resume L:%p", thread_i, L);
             resumeret = luvco_resume(L);
             if (resumeret != LUVCO_RESUME_NORMAL) break;
         }
@@ -76,10 +84,11 @@ static void scheduler_thread_cb (void* arg) {
 void luvco_scheduler_init (luvco_scheduler* s, int nprocess) {
     s->nprocess = nprocess;
     s->worklist = (luvco_ringbuf2*)malloc(luvco_ringbuf2_sizeof(WORKLIST_LEN));
+    luvco_ringbuf2_init(s->worklist, WORKLIST_LEN, WORKLIST_LEN2);
     atomic_store(&s->running_work, 0);
     atomic_store(&s->yield_work, 0);
     atomic_store(&s->total_work, 0);
-    luvco_ringbuf2_init(s->worklist, WORKLIST_LEN, WORKLIST_LEN2);
+    s->stop_flag = false;
     for (int i = 0; i < nprocess; i++) {
         luvco_process_data* pdata = &s->pdata[i];
         pdata->scheduler = s;
@@ -89,6 +98,12 @@ void luvco_scheduler_init (luvco_scheduler* s, int nprocess) {
         int ret = uv_thread_create(&s->pdata[i].thread, scheduler_thread_cb, (void*)&s->pdata[i]);
         assert(ret == 0);
     }
+}
+
+void luvco_scheduler_delete (luvco_scheduler* s) {
+    assert(s->stop_flag && "should stop befor delete");
+    luvco_ringbuf2_delete(s->worklist);
+    free(s->worklist);
 }
 
 size_t luvco_scheduler_sizeof (int nprocess) {
@@ -115,4 +130,11 @@ int luvco_scheduler_totalwork (luvco_scheduler* s) {
 
 void luvco_add_uvwork(luvco_gstate* gstate, luvco_uvwork* uvwork) {
     luvco_ringbuf2_spinpush(gstate->uvworklist, uvwork);
+}
+
+void luvco_scheduler_stop (luvco_scheduler* s) {
+    s->stop_flag = true;
+    for (int i = 0; i < s->nprocess; ++i) {
+        uv_thread_join(&s->pdata[i].thread);
+    }
 }

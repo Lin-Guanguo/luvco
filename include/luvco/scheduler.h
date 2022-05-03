@@ -9,6 +9,8 @@ size_t luvco_scheduler_sizeof (int nprocess);
 
 void luvco_scheduler_init (luvco_scheduler* s, int nprocess);
 
+void luvco_scheduler_delete (luvco_scheduler* s);
+
 // add work
 int luvco_scheduler_addwork (luvco_scheduler* s, luvco_lstate* l);
 
@@ -27,3 +29,5 @@ typedef struct luvco_uvwork {
 } luvco_uvwork;
 
 void luvco_add_uvwork(luvco_gstate* gstate, luvco_uvwork* uvwork);
+
+void luvco_scheduler_stop (luvco_scheduler* s);

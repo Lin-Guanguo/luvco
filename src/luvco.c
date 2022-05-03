@@ -379,6 +379,10 @@ void luvco_run (luvco_gstate* state) {
     uv_idle_start(&deamon.idle, luvco_deamon);
     uv_run(&state->loop, UV_RUN_DEFAULT);
 
+    luvco_scheduler_stop(s);
+    luvco_scheduler_delete(s);
+    free(s);
+
     log_trace("luvco end, global state:%p", state);
 }
 
@@ -387,7 +391,7 @@ void luvco_close (luvco_gstate* state) {
     int ret = uv_loop_close(&state->loop);
     if (ret == UV_EBUSY) {
         log_error("uv close return UV_EBUSY");
-        // uv_walk(&state->loop, print_all_handle, NULL);
+        uv_walk(&state->loop, print_all_handle, NULL);
     } else {
         log_debug("uv close");
     }
@@ -402,6 +406,5 @@ void luvco_close (luvco_gstate* state) {
     lua_gc(L, LUA_GCCOLLECT);
     luvco_ringbuf2_delete(state->uvworklist);
     free(state->uvworklist);
-    // TODO: delete state->scheduler
     free(state);
 }

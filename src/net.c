@@ -286,7 +286,7 @@ static int server_close (lua_State* L) {
         if (server->accept.L != NULL) {
             log_trace("server %p closed, resume waiting accept %p", server, server->accept.L);
             uv_close((uv_handle_t*)server->accept.con, close_unused_connection_cb);
-            server->accept.con = NULL;
+            server->accept.con = NULL; // pass info to accpet_k
             luvco_toresume_incb(server->accept, 0);
         }
 
@@ -304,7 +304,6 @@ static int server_gc (lua_State* L) {
         return 0;
     }
     log_trace("server %p gc", server);
-    server_close(L); // TODO: close in gc is not good
     free(server);
     return 0;
 }
@@ -389,6 +388,7 @@ static void connection_write_cb (uv_write_t* req, int status) {
     con->write.u.status = status;
     luvco_toresume_incb(con->write, 0);
     if (con->close.L != NULL) {
+        // closing when writing, after write, close it
         uv_close((uv_handle_t *)&con->tcp, connection_close_cb);
     }
 }
@@ -489,7 +489,6 @@ static int connection_gc (lua_State *L) {
         return 0;
     }
     log_trace("connection %p gc", con);
-    connection_close(L);
     free(con->read.buf);
     free(con->write.req);
     free(con->write.bufs);

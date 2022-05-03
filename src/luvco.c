@@ -164,7 +164,7 @@ enum luvco_resume_return luvco_resume (lua_State_flag* Lb) {
             luvco_lstate* lstate = luvco_get_state(L);
             log_trace("all coro end, close L:%p, lstate:%p", L, lstate);
             lua_close(L);               // 1, close L
-            local_state_delete(lstate); // 2, close lstate.  ORDER IS IMPORTANT!!!
+            local_state_delete(lstate); // 3, close lstate.  ORDER IS IMPORTANT!!!
         } else {
             lua_gc(L, LUA_GCCOLLECT);
         }

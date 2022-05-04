@@ -14,8 +14,6 @@
 #include <assert.h>
 #include <string.h>
 
-static const char* CORO_TABLE_FIELD = "luvco.global_corotable";
-static int CORO_TABLE_COUNT_IDX = 1;
 static const char* LSTATE_FIELD = "luvco.local_state";
 static const char* MAINSTATE_TAG_FILED = "luvco.main_state_tag";
 
@@ -27,6 +25,7 @@ static void local_state_init (luvco_lstate* lstate, luvco_gstate* gstate) {
     lstate->gstate = gstate;
     lstate->toresume = (luvco_ringbuf2*)malloc(luvco_ringbuf2_sizeof(RESUME_QUEUE_SIZE));
     luvco_ringbuf2_init(lstate->toresume, RESUME_QUEUE_SIZE, RESUME_QUEUE_BUF_SIZE);
+    lstate->coro_count = 0;
 }
 
 static void local_state_delete (luvco_lstate* lstate) {
@@ -39,40 +38,25 @@ static void print_all_handle (uv_handle_t* h, void* args) {
     printf("--%p\t%d:%s\n", h, h->type, uv_handle_type_name(h->type));
 }
 
-// top of stack is coroutine thread.
+// top of stack is coroutine thread. pop it and register
 // prevent gc collect coroutine
-//
-// regiter coro to global core table, key is lua_State udata
-// value is coroutine
-static void register_coro (lua_State* L) {
-    luaL_checktype(L, -1, LUA_TTHREAD);                     // thread
-    lua_getfield(L, LUA_REGISTRYINDEX, CORO_TABLE_FIELD);    // coro_table
-    lua_pushlightuserdata(L, (void*)L);                     // udata
-    lua_pushvalue(L, -3);                                   // thread
-    lua_settable(L, -3);                                    // set coro_table, pop 2: udata, thread
+static void register_coro (luvco_lstate* lstate, lua_State* L) {
+    luaL_checktype(L, -1, LUA_TTHREAD);
+    lua_pushlightuserdata(L, (void*)L);
+    lua_rotate(L, -2, 1);
+    lua_settable(L, LUA_REGISTRYINDEX); // K: light userdata pointer, V: thread
 
-    lua_geti(L, -1, CORO_TABLE_COUNT_IDX);                // count
-    int count = lua_tointeger(L, -1);
-    lua_pop(L, 1);                                          // pop count
-    lua_pushinteger(L, count+1);                            // push count + 1
-    lua_seti(L, -2, CORO_TABLE_COUNT_IDX);                // update count
-    lua_pop(L, 1);                                          // pop coro_table
+    lstate->coro_count++;
 }
 
 // return 1 if all coro end
-static int unregister_coro (lua_State* L) {
+static int unregister_coro (luvco_lstate* lstate, lua_State* L) {
     log_trace("unregister coro %p", L);
-    lua_getfield(L, LUA_REGISTRYINDEX, CORO_TABLE_FIELD);
     lua_pushlightuserdata(L, (void*)L);
     lua_pushnil(L);
-    lua_settable(L, -3);
+    lua_settable(L, LUA_REGISTRYINDEX);
 
-    lua_geti(L, -1, CORO_TABLE_COUNT_IDX);
-    int count = lua_tointeger(L, -1);
-    lua_pop(L, 1);
-    lua_pushinteger(L, count-1);
-    lua_seti(L, -2, CORO_TABLE_COUNT_IDX);
-    if (count - 1 == 0) {
+    if (--lstate->coro_count == 0) {
         return 1;
     }
     return 0;
@@ -87,11 +71,7 @@ static void luvco_init_luastate (lua_State* L, luvco_gstate* gstate) {
     lua_pushlightuserdata(L, lstate);
     lua_setfield(L, LUA_REGISTRYINDEX, LSTATE_FIELD);
     local_state_init(lstate, gstate);
-
-    lua_newtable(L);
-    lua_pushinteger(L, 1);
-    lua_seti(L, -2, CORO_TABLE_COUNT_IDX);
-    lua_setfield(L, LUA_REGISTRYINDEX, CORO_TABLE_FIELD);
+    lstate->coro_count = 1;
 }
 
 luvco_lstate* luvco_get_state (lua_State* L) {
@@ -128,6 +108,7 @@ void luvco_toresume (luvco_lstate* lstate, lua_State* L, int nargs) {
 enum luvco_resume_return luvco_resume (lua_State_flag* Lb) {
     int nargs = (intptr_t)Lb & 3;
     lua_State* L = (lua_State*)((intptr_t)Lb & (~3));
+    luvco_lstate* lstate = luvco_get_state(L);
 
     int res;
     int ret = lua_resume(L, NULL, nargs, &res);
@@ -155,13 +136,12 @@ enum luvco_resume_return luvco_resume (lua_State_flag* Lb) {
         }
         return LUVCO_RESUME_NORMAL;
     case LUA_OK:
-        ret = unregister_coro(L);
+        ret = unregister_coro(lstate, L);
         if (ret != 1) {
             return LUVCO_RESUME_NORMAL;
         }
         int ty = lua_getfield(L, LUA_REGISTRYINDEX, MAINSTATE_TAG_FILED);
         lua_pop(L, 1);
-        luvco_lstate* lstate = luvco_get_state(L);
         if (ty == LUA_TNIL) {
             log_trace("lstate:%p, all coro end, close L:%p", lstate, L);
             lua_close(L);               // 1, close L
@@ -188,17 +168,17 @@ static int spawn_k (lua_State *L, int status, lua_KContext ctx) {
 
 static int spawn (lua_State* L) {
     luaL_checktype(L, 1, LUA_TFUNCTION);
-    lua_State* NL = lua_newthread(L);
-    register_coro(L);
+    luvco_lstate* lstate = luvco_get_state(L);
 
-    lua_pushvalue(L, 1); // copy function to top
+    lua_State* NL = lua_newthread(L);
+    register_coro(lstate, L);
+
     lua_xmove(L, NL, 1);  // pop function from L to NL
 
     log_trace("spawn from L:%p, NL:%p", L, NL);
 
-    luvco_lstate* lstate = luvco_get_state(L);
-    luvco_toresume(lstate, L, 0);
     luvco_toresume(lstate, NL, 0);
+    luvco_toresume(lstate, L, 0);
     luvco_yield(L, (lua_KContext)NULL, spawn_k);
 }
 
@@ -400,8 +380,6 @@ void luvco_close (luvco_gstate* state) {
     lua_State* L = state->main_coro;
     lua_pushnil(L);
     lua_setfield(L, LUA_REGISTRYINDEX, LSTATE_FIELD);
-    lua_pushnil(L);
-    lua_setfield(L, LUA_REGISTRYINDEX, CORO_TABLE_FIELD);
 
     lua_gc(L, LUA_GCCOLLECT);
     luvco_ringbuf2_delete(state->uvworklist);

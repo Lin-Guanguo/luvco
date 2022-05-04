@@ -12,6 +12,7 @@ typedef struct luvco_scheduler luvco_scheduler;
 typedef struct luvco_gstate {
     uv_loop_t loop;
     lua_State* main_coro;
+
     luvco_newluaf newluaf;
     void* newluaf_ud;
 
@@ -22,6 +23,7 @@ typedef struct luvco_gstate {
 
 typedef struct luvco_lstate {
     luvco_gstate *gstate;
+    size_t coro_count;
     luvco_ringbuf2* toresume;
 } luvco_lstate;
 

@@ -247,7 +247,7 @@ static void luvco_chan1_send_after_yield (void* ud) {
 }
 
 // return a boolean
-int luvco_chan1_send (lua_State* L) {
+static int luvco_chan1_send (lua_State* L) {
     chan1_sender* sender = luvco_check_udata(L, 1, chan1_sender);
     luaL_checkany(L, 2);
 
@@ -282,7 +282,7 @@ static void luvco_chan1_recv_after_yield (void* ud) {
 }
 
 // return a boolean an a value
-int luvco_chan1_recv (lua_State* L) {
+static int luvco_chan1_recv (lua_State* L) {
     chan1_recver* recver = luvco_check_udata(L, 1, chan1_recver);
     luvco_lstate* lstate = luvco_get_state(L);
     chan1* ch = recver->ch;

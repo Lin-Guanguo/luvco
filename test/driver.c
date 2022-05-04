@@ -1,5 +1,5 @@
 #include <luvco.h>
-#include <luvco/base.h>
+#include <luvco/log.h>
 
 #include <lua/lua.h>
 #include <lua/lauxlib.h>
@@ -18,5 +18,5 @@ int main(int argc, char **argv) {
     luvco_gstate* state = luvco_init(L, NULL, NULL);
     luvco_run(state);
     luvco_close(state);
-    lua_close(state->main_coro);
+    lua_close(L);
 }

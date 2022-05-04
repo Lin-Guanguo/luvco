@@ -73,6 +73,10 @@ static void scheduler_thread_cb (void* arg) {
 #define WORKLIST_LEN 4
 #define WORKLIST_LEN2  8
 
+size_t luvco_scheduler_sizeof (int nprocess) {
+    return sizeof(luvco_scheduler) + sizeof(luvco_process_data) * nprocess;
+}
+
 void luvco_scheduler_init (luvco_scheduler* s, int nprocess) {
     s->nprocess = nprocess;
     s->worklist = (luvco_ringbuf2*)malloc(luvco_ringbuf2_sizeof(WORKLIST_LEN));
@@ -92,14 +96,17 @@ void luvco_scheduler_init (luvco_scheduler* s, int nprocess) {
     }
 }
 
+void luvco_scheduler_stop (luvco_scheduler* s) {
+    s->stop_flag = true;
+    for (int i = 0; i < s->nprocess; ++i) {
+        uv_thread_join(&s->pdata[i].thread);
+    }
+}
+
 void luvco_scheduler_delete (luvco_scheduler* s) {
     assert(s->stop_flag && "should stop befor delete");
     luvco_ringbuf2_delete(s->worklist);
     free(s->worklist);
-}
-
-size_t luvco_scheduler_sizeof (int nprocess) {
-    return sizeof(luvco_scheduler) + sizeof(luvco_process_data) * nprocess;
 }
 
 int luvco_scheduler_addwork (luvco_scheduler* s, luvco_lstate* l) {
@@ -118,15 +125,4 @@ int luvco_scheduler_resumework (luvco_scheduler* s, luvco_lstate* l) {
 
 int luvco_scheduler_totalwork (luvco_scheduler* s) {
     return atomic_load(&s->total_work);
-}
-
-void luvco_add_uvwork(luvco_gstate* gstate, luvco_uvwork* uvwork) {
-    luvco_ringbuf2_spinpush(gstate->uvworklist, uvwork);
-}
-
-void luvco_scheduler_stop (luvco_scheduler* s) {
-    s->stop_flag = true;
-    for (int i = 0; i < s->nprocess; ++i) {
-        uv_thread_join(&s->pdata[i].thread);
-    }
 }

@@ -1,4 +1,5 @@
 #include <luvco/luvco.h>
+#include <lua/lualib.h>
 
 static const char* LSTATE_FIELD = "luvco.local_state";
 
@@ -291,6 +292,10 @@ luvco_gstate* luvco_init (lua_State* L, luvco_newluaf f, void* f_ud) {
     lstate->is_main_coro = true;
 
     return state;
+}
+
+void luvco_add_uvwork(luvco_gstate* gstate, luvco_uvwork* uvwork) {
+    luvco_ringbuf2_spinpush(gstate->uvworklist, uvwork);
 }
 
 #define NPROCESS 4

@@ -1,6 +1,5 @@
 #include <luvco.h>
-#include <luvco/base.h>
-#include <luvco/lock.h>
+#include <luvco/luvco.h>
 
 #include <uv.h>
 #include <unity.h>

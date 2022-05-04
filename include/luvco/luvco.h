@@ -52,11 +52,18 @@ typedef lua_State lua_State_flag;
 // call by scheduler
 enum luvco_resume_return luvco_resume (lua_State_flag* L2);
 
+int luvco_open_base (lua_State* L);
+int luvco_open_net (lua_State* L);
+int luvco_open_chan (lua_State* L);
+void luvco_open_chan_withbase (lua_State* L);
+
+
 
 typedef atomic_flag luvco_spinlock;
 #define luvco_spinlock_init(spin) atomic_flag_clear(spin)
 #define luvco_spinlock_lock(spin) while (atomic_flag_test_and_set(spin)) {}
 #define luvco_spinlock_unlock(spin) atomic_flag_clear(spin)
+
 
 
 enum luvco_move_return {
@@ -66,11 +73,8 @@ enum luvco_move_return {
     LUVCO_MOVE_FAILED,
 };
 enum luvco_move_return luvco_move_cross_lua(lua_State *from, lua_State *to);
-int luvco_chan1_send (lua_State* L);
-int luvco_chan1_recv (lua_State* L);
 void luvco_chan1_build (lua_State *Lsend, lua_State *Lrecv);
-void luvco_open_chan_withbase (lua_State* L);
-int luvco_open_chan (lua_State* L);
+
 
 #define container_of(ptr, type, member) (type*)((char*)(ptr) - (char*)(&(((type*)NULL)->member)))
 #define luvco_new_meta(L, type) \
@@ -109,6 +113,7 @@ const char* LUVCO_UDATAMETA_MOVEF_FIELD;
 typedef int (*luvco_moveobj_f) (void* from, void* to);
 
 
+
 typedef struct luvco_ringbuf luvco_ringbuf;
 typedef struct luvco_ringbuf2 luvco_ringbuf2;
 
@@ -130,6 +135,7 @@ int luvco_ringbuf2_unlockpop (luvco_ringbuf2* r, void** data);
 int luvco_ringbuf2_delete (luvco_ringbuf2* r);
 
 
+
 typedef struct luvco_scheduler luvco_scheduler;
 size_t luvco_scheduler_sizeof (int nprocess);
 void luvco_scheduler_init (luvco_scheduler* s, int nprocess);
@@ -146,5 +152,3 @@ typedef struct luvco_uvwork {
     luvco_uvwork_cb cb;
 } luvco_uvwork;
 void luvco_add_uvwork(luvco_gstate* gstate, luvco_uvwork* uvwork);
-
-

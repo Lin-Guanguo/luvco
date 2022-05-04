@@ -15,7 +15,6 @@
 #include <string.h>
 
 static const char* LSTATE_FIELD = "luvco.local_state";
-static const char* MAINSTATE_TAG_FILED = "luvco.main_state_tag";
 
 static int RESUME_QUEUE_SIZE = 8;
 static int RESUME_QUEUE_BUF_SIZE = 8;
@@ -49,21 +48,17 @@ static void register_coro (luvco_lstate* lstate, lua_State* L) {
     lstate->coro_count++;
 }
 
-// return 1 if all coro end
-static int unregister_coro (luvco_lstate* lstate, lua_State* L) {
+static void unregister_coro (luvco_lstate* lstate, lua_State* L) {
     log_trace("unregister coro %p", L);
     lua_pushlightuserdata(L, (void*)L);
     lua_pushnil(L);
     lua_settable(L, LUA_REGISTRYINDEX);
 
-    if (--lstate->coro_count == 0) {
-        return 1;
-    }
-    return 0;
+    lstate->coro_count--;
 }
 
 // lua_state has only one shared luvco_gstate
-static void luvco_init_luastate (lua_State* L, luvco_gstate* gstate) {
+static luvco_lstate* luvco_init_luastate (lua_State* L, luvco_gstate* gstate) {
     luaL_requiref(L, "luvco", luvco_open_base, 1);
     lua_pop(L, 1);
 
@@ -72,6 +67,7 @@ static void luvco_init_luastate (lua_State* L, luvco_gstate* gstate) {
     lua_setfield(L, LUA_REGISTRYINDEX, LSTATE_FIELD);
     local_state_init(lstate, gstate);
     lstate->coro_count = 1;
+    return lstate;
 }
 
 luvco_lstate* luvco_get_state (lua_State* L) {
@@ -137,30 +133,26 @@ enum luvco_resume_return luvco_resume (lua_State_flag* Lb) {
             assert(0 && "invalid yield tag");
         }
     case LUA_OK:
-        ret = unregister_coro(lstate, L);
-        if (ret != 1) {
-            return LUVCO_RESUME_NORMAL;
-        }
-        int ty = lua_getfield(L, LUA_REGISTRYINDEX, MAINSTATE_TAG_FILED);
-        lua_pop(L, 1);
-        if (ty == LUA_TNIL) {
-            log_trace("lstate:%p, all coro end, close L:%p", lstate, L);
-            lua_close(L);               // 1, close L
-            local_state_delete(lstate); // 2, close lstate.  ORDER IS IMPORTANT!!!
-            free(lstate);
-        } else {
-            log_trace("lstate:%p, all coro end, is main coro, gc", lstate);
-            lua_gc(L, LUA_GCCOLLECT);
+        unregister_coro(lstate, L);
+        if (lstate->coro_count == 0) {
+            if (lstate->is_main_coro) {
+                log_trace("lstate:%p, all coro end, is main coro, gc", lstate);
+                lua_gc(L, LUA_GCCOLLECT);
+            } else {
+                log_trace("lstate:%p, all coro end, close L:%p", lstate, L);
+                lua_close(L);
+            }
             local_state_delete(lstate);
             free(lstate);
+            return LUVCO_RESUME_LSTATE_END;
+        } else {
+            return LUVCO_RESUME_NORMAL;
         }
-        return LUVCO_RESUME_LSTATE_END;
     default:
         log_error("luvco resume error");
         luvco_dump_lua_stack(L);
         return LUVCO_RESUME_ERROR;
     }
-    assert(false && "error");
 }
 
 static int spawn_k (lua_State *L, int status, lua_KContext ctx) {
@@ -194,8 +186,7 @@ static int ispawn_k (lua_State *L, int status, lua_KContext ctx) {
     luvco_gstate* gstate = lstate->gstate; \
     lua_State* NL = (gstate->newluaf)(gstate->newluaf_ud); \
     luaL_loadbuffer(NL, code, str_len, "ispawn_NL_code"); \
-    luvco_init_luastate(NL, gstate); \
-    luvco_lstate* nlstate = luvco_get_state(NL); \
+    luvco_lstate* nlstate = luvco_init_luastate(NL, gstate); \
     log_trace("ispawn from L:%p, lstate:%p, NL:%p, nlstate:%p", L, lstate, NL, nlstate);
 
 static int ispawn (lua_State* L) {
@@ -310,9 +301,8 @@ luvco_gstate* luvco_init (lua_State* L, luvco_newluaf f, void* f_ud) {
 
     uv_loop_init(&state->loop);
 
-    luvco_init_luastate(L, state);
-    lua_pushinteger(L, 0);
-    lua_setfield(L, LUA_REGISTRYINDEX, MAINSTATE_TAG_FILED);
+    luvco_lstate* lstate = luvco_init_luastate(L, state);
+    lstate->is_main_coro = true;
 
     return state;
 }

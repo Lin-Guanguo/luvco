@@ -54,6 +54,7 @@ static luvco_lstate* luvco_init_luastate (lua_State* L, luvco_gstate* gstate) {
     lua_setfield(L, LUA_REGISTRYINDEX, LSTATE_FIELD);
     local_state_init(lstate, gstate);
     lstate->coro_count = 1;
+    lstate->is_main_coro = false;
     return lstate;
 }
 

@@ -1,14 +1,4 @@
-#include <luvco/chan.h>
-
-#include <luvco/object.h>
-#include <luvco/lock.h>
-#include <luvco/scheduler.h>
-
-#include <lua/lua.h>
-#include <lua/lauxlib.h>
-
-#include <assert.h>
-#include <stdlib.h>
+#include <luvco/luvco.h>
 
 // call movef, move top of `from` to `to`, not pop
 static enum luvco_move_return move_udata(lua_State *from, lua_State *to) {

@@ -1,18 +1,4 @@
-#include <luvco.h>
-#include <luvco/base.h>
-#include <luvco/object.h>
-#include <luvco/scheduler.h>
-#include <luvco/chan.h>
-#include <luvco/ringbuf.h>
-
-#include <lua/lua.h>
-#include <lua/lauxlib.h>
-#include <lua/lualib.h>
-#include <uv.h>
-
-#include <stdlib.h>
-#include <assert.h>
-#include <string.h>
+#include <luvco/luvco.h>
 
 static const char* LSTATE_FIELD = "luvco.local_state";
 

@@ -1,6 +1,4 @@
-#include <lua/lua.h>
-#include <lua/lualib.h>
-#include <lua/lauxlib.h>
+#include <luvco/luvco.h>
 
 void luvco_dump_lua_stack (lua_State* L) {
   int top=lua_gettop(L);

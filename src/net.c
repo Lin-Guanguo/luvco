@@ -1,17 +1,4 @@
-#include <luvco.h>
-#include <luvco/base.h>
-#include <luvco/scheduler.h>
-#include <luvco/object.h>
-
-#include <lua/lua.h>
-#include <lua/lauxlib.h>
-#include <lua/lualib.h>
-#include <uv.h>
-
-#include <assert.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
+#include <luvco/luvco.h>
 
 typedef struct ip_addr {
     struct sockaddr_storage addr;

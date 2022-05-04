@@ -1,7 +1,5 @@
-#include <luvco/lock.h>
+#include <luvco/luvco.h>
 
-#include <assert.h>
-#include <stdlib.h>
 
 #define RINGBUF2_FACTOR 2
 

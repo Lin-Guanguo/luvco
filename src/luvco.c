@@ -81,19 +81,22 @@ luvco_lstate* luvco_get_state (lua_State* L) {
     return state;
 }
 
+enum luvco_yield_tag {
+    LUVCO_YIELD_NORMAL = 10085,
+    LUVCO_YIELD_THREAD
+};
+
 void luvco_yield (lua_State *L, lua_KContext k_ctx, lua_KFunction k) {
-    // no use the yield result
+    luvco_lstate* lstate = luvco_get_state(L);
+    lstate->last_yield_tag = LUVCO_YIELD_NORMAL;
     lua_yieldk(L, 0, k_ctx, k);
 }
 
-enum luvco_special_yield_tag {
-    LUVCO_YIELD_THREAD = 1086,
-};
-
 void luvco_yield_thread (lua_State *L, lua_KContext k_ctx, lua_KFunction k, luvco_cb_f f, void* ud) {
-    lua_pushlightuserdata(L, f);
-    lua_pushlightuserdata(L, ud);
-    lua_pushlightuserdata(L, (void*)LUVCO_YIELD_THREAD);
+    luvco_lstate* lstate = luvco_get_state(L);
+    lstate->last_yield_tag = LUVCO_YIELD_THREAD;
+    lstate->last_yield_args[0] = f;
+    lstate->last_yield_args[1] = ud;
     lua_yieldk(L, 0, k_ctx, k);
 }
 
@@ -120,21 +123,19 @@ enum luvco_resume_return luvco_resume (lua_State_flag* Lb) {
 
     switch (ret) {
     case LUA_YIELD:
-        if (lua_gettop(L) >= 1) {
-            intptr_t tag = (intptr_t)lua_touserdata(L, -1);
-            switch (tag) {
-            case LUVCO_YIELD_THREAD:{
-                luvco_cb_f afterf = lua_touserdata(L, -3);
-                void* afterf_ud= lua_touserdata(L, -2);
-                lua_pop(L, 3);
-                if (afterf != NULL) {
-                    afterf(afterf_ud);
-                }
-                return LUVCO_RESUME_YIELD_THREAD;
-            } break;
+        switch (lstate->last_yield_tag) {
+        case LUVCO_YIELD_NORMAL:
+            return LUVCO_RESUME_NORMAL;
+        case LUVCO_YIELD_THREAD:;
+            luvco_cb_f afterf = (luvco_cb_f)lstate->last_yield_args[0];
+            void* afterf_ud= lstate->last_yield_args[1];
+            if (afterf != NULL) {
+                afterf(afterf_ud);
             }
+            return LUVCO_RESUME_YIELD_THREAD;
+        default:
+            assert(0 && "invalid yield tag");
         }
-        return LUVCO_RESUME_NORMAL;
     case LUA_OK:
         ret = unregister_coro(lstate, L);
         if (ret != 1) {

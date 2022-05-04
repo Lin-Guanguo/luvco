@@ -23,8 +23,10 @@ typedef struct luvco_gstate {
 
 typedef struct luvco_lstate {
     luvco_gstate *gstate;
-    size_t coro_count;
     luvco_ringbuf2* toresume;
+    size_t coro_count;
+    int last_yield_tag;
+    void* last_yield_args[4];
 } luvco_lstate;
 
 luvco_lstate* luvco_get_state (lua_State* L);
